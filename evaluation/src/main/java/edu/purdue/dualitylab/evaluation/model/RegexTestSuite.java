@@ -5,6 +5,7 @@ import dk.brics.automaton.AutomatonCoverage;
 import java.util.Set;
 
 public record RegexTestSuite(
+        Long id,
         long projectId,
         long regexId,
         String pattern,

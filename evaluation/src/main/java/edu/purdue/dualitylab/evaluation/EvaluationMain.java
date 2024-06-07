@@ -1,8 +1,10 @@
 package edu.purdue.dualitylab.evaluation;
 
 import com.beust.jcommander.JCommander;
+import edu.purdue.dualitylab.evaluation.args.EvaluateArgs;
 import edu.purdue.dualitylab.evaluation.args.PullTestSuiteArgs;
 import edu.purdue.dualitylab.evaluation.args.RootArgs;
+import edu.purdue.dualitylab.evaluation.commands.EvaluateCommand;
 import edu.purdue.dualitylab.evaluation.commands.PullTestSuitesCommand;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -15,9 +17,11 @@ public class EvaluationMain {
     public static void main(String[] args) throws Exception {
         RootArgs rootArgs = new RootArgs();
         PullTestSuiteArgs pullTestSuiteArgs = new PullTestSuiteArgs();
+        EvaluateArgs evaluateArgs = new EvaluateArgs();
         JCommander jc = JCommander.newBuilder()
                 .addObject(rootArgs)
                 .addCommand("pull-test-suites", pullTestSuiteArgs)
+                .addCommand("evaluate", evaluateArgs)
                 .build();
 
         jc.parse(args);
@@ -29,8 +33,13 @@ public class EvaluationMain {
 
         switch (jc.getParsedCommand()) {
             case "pull-test-suites":
-                PullTestSuitesCommand cmd = new PullTestSuitesCommand(pullTestSuiteArgs, sqliteConfig());
-                cmd.call();
+                PullTestSuitesCommand pullTestSuitesCmd = new PullTestSuitesCommand(rootArgs, pullTestSuiteArgs, sqliteConfig());
+                pullTestSuitesCmd.call();
+                break;
+
+            case "evaluate":
+                EvaluateCommand evaluateCmd = new EvaluateCommand(rootArgs, evaluateArgs, sqliteConfig());
+                evaluateCmd.call();
                 break;
 
             default:

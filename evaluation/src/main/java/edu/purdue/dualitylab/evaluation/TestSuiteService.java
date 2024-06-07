@@ -1,6 +1,7 @@
 package edu.purdue.dualitylab.evaluation;
 
 import dk.brics.automaton.*;
+import edu.purdue.dualitylab.evaluation.db.RawTestSuiteCollector;
 import edu.purdue.dualitylab.evaluation.db.RegexDatabaseClient;
 import edu.purdue.dualitylab.evaluation.model.*;
 import org.slf4j.Logger;
@@ -24,11 +25,22 @@ public final class TestSuiteService {
         this.databaseClient = databaseClient;
     }
 
+    /**
+     * Load existing regex test suites
+     * @return Stream of regex test suites
+     * @throws SQLException
+     */
     public Stream<RegexTestSuite> loadRegexTestSuites() throws SQLException {
-        return loadRegexTestSuites(null);
+        return this.databaseClient.loadRawTestSuiteRows()
+                .collect(new RawTestSuiteCollector())
+                .stream();
     }
 
-    public Stream<RegexTestSuite> loadRegexTestSuites(TestSuiteStatistics stats) throws SQLException {
+    public Stream<RegexTestSuite> createRegexTestSuitesFromRaw() throws SQLException {
+        return createRegexTestSuitesFromRaw(null);
+    }
+
+    public Stream<RegexTestSuite> createRegexTestSuitesFromRaw(TestSuiteStatistics stats) throws SQLException {
         return loadRawRegexTestSuites().stream()
                 .flatMap(rawSet -> expandTestSuite(rawSet, stats).stream());
     }
@@ -109,6 +121,7 @@ public final class TestSuiteService {
         }
 
         return Optional.of(new RegexTestSuite(
+                null,
                 stringSet.projectId(),
                 stringSet.regexId(),
                 stringSet.pattern(),

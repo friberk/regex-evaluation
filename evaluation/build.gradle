@@ -41,3 +41,7 @@ test {
 application {
     mainClass = 'edu.purdue.dualitylab.evaluation.EvaluationMain'
 }
+
+run {
+    systemProperties System.getProperties()
+}

@@ -1,6 +1,8 @@
 package edu.purdue.dualitylab.evaluation.commands;
 
+import edu.purdue.dualitylab.evaluation.EvaluationService;
 import edu.purdue.dualitylab.evaluation.args.EvaluateArgs;
+import edu.purdue.dualitylab.evaluation.args.RootArgs;
 import edu.purdue.dualitylab.evaluation.db.RegexDatabaseClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,8 +16,8 @@ public class EvaluateCommand extends AbstractCommand<EvaluateArgs, Void> {
     private static final Logger logger = LoggerFactory.getLogger(EvaluateCommand.class);
     private final SQLiteConfig sqliteConfig;
 
-    public EvaluateCommand(EvaluateArgs args, SQLiteConfig sqliteConfig) {
-        super(args);
+    public EvaluateCommand(RootArgs rootArgs, EvaluateArgs args, SQLiteConfig sqliteConfig) {
+        super(rootArgs, args);
         this.sqliteConfig = sqliteConfig;
     }
 
@@ -28,7 +30,18 @@ public class EvaluateCommand extends AbstractCommand<EvaluateArgs, Void> {
         RegexDatabaseClient regexDatabaseClient = new RegexDatabaseClient(connection);
         logger.info("Successfully connected to database");
 
+        regexDatabaseClient.initDatabase(rootArgs.getExtensionPath());
+        logger.info("Starting to load test suites...");
 
+        EvaluationService service = new EvaluationService(regexDatabaseClient);
+
+        var results = service.evaluateTestSuites();
+
+        logger.info("Saving test suite results....");
+        regexDatabaseClient.insertManyTestSuiteResults(results);
+        logger.info("Done");
+
+        regexDatabaseClient.close();
 
         return null;
     }

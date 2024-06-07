@@ -1,15 +1,18 @@
 package edu.purdue.dualitylab.evaluation.db;
 
-import edu.purdue.dualitylab.evaluation.model.RawRegexTestSuiteEntry;
-import edu.purdue.dualitylab.evaluation.model.RegexTestSuite;
-import edu.purdue.dualitylab.evaluation.model.RegexTestSuiteString;
+import edu.purdue.dualitylab.evaluation.model.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.sql.rowset.JoinRowSet;
+import javax.sql.rowset.RowSetFactory;
+import javax.sql.rowset.RowSetProvider;
 import java.io.*;
 import java.sql.*;
 import java.util.Collection;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
@@ -82,6 +85,37 @@ public final class RegexDatabaseClient implements AutoCloseable {
         stringStmt.close();
     }
 
+    public void setupResultsTable() throws SQLException {
+        executeNamedQuery("create_test_suite_result_table.sql");
+    }
+
+    public void insertManyTestSuiteResults(Map<Long, Set<Long>> testSuitesAndResults) throws SQLException {
+        String queryText = loadNamedQuery("insert_test_suite_result.sql").orElseThrow();
+        PreparedStatement stmt = connection.prepareStatement(queryText);
+        for (Map.Entry<Long, Set<Long>> entry : testSuitesAndResults.entrySet()) {
+            long testSuiteId = entry.getKey();
+            for (long matchId : entry.getValue()) {
+                stmt.setLong(1, testSuiteId);
+                stmt.setLong(2, matchId);
+                stmt.execute();
+            }
+        }
+
+        stmt.close();
+    }
+
+    public Stream<RawTestSuiteRow> loadRawTestSuiteRows() throws SQLException {
+        String queryText = loadNamedQuery("load_existing_test_suites.sql").orElseThrow();
+        return streamQuery(queryText, RawTestSuiteRow.class);
+    }
+
+    public Stream<CandidateRegex> loadCandidateRegexes(long projectId) throws SQLException {
+        String queryText = loadNamedQuery("load_candidate_regexes.sql").orElseThrow();
+        PreparedStatement stmt = connection.prepareStatement(queryText);
+        stmt.setLong(1, projectId);
+        return streamQuery(stmt, CandidateRegex.class);
+    }
+
     @Override
     public void close() throws Exception {
         connection.close();
@@ -93,6 +127,26 @@ public final class RegexDatabaseClient implements AutoCloseable {
             Statement stmt = connection.createStatement();
             closable = UncheckedCloseable.wrap(stmt);
             ResultSet results = stmt.executeQuery(queryText);
+            Stream<T> entityStream = StreamSupport.stream(new EntityStream<>(results, clazz), false);
+            return entityStream.onClose(closable);
+        } catch (SQLException exe) {
+            if (closable != null) {
+                try {
+                    closable.close();
+                } catch (Exception inner) {
+                    exe.addSuppressed(inner);
+                }
+            }
+
+            throw exe;
+        }
+    }
+
+    private <T> Stream<T> streamQuery(PreparedStatement stmt, Class<T> clazz) throws SQLException {
+        UncheckedCloseable closable = null;
+        try {
+            closable = UncheckedCloseable.wrap(stmt);
+            ResultSet results = stmt.executeQuery();
             Stream<T> entityStream = StreamSupport.stream(new EntityStream<>(results, clazz), false);
             return entityStream.onClose(closable);
         } catch (SQLException exe) {

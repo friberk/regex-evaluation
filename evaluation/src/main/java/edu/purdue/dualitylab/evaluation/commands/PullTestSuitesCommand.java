@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.purdue.dualitylab.evaluation.TestSuiteService;
 import edu.purdue.dualitylab.evaluation.TestSuiteStatistics;
 import edu.purdue.dualitylab.evaluation.args.PullTestSuiteArgs;
+import edu.purdue.dualitylab.evaluation.args.RootArgs;
 import edu.purdue.dualitylab.evaluation.db.RegexDatabaseClient;
 import edu.purdue.dualitylab.evaluation.model.RegexTestSuite;
 import org.slf4j.Logger;
@@ -25,8 +26,8 @@ public class PullTestSuitesCommand extends AbstractCommand<PullTestSuiteArgs, Vo
 
     private final SQLiteConfig sqliteConfig;
 
-    public PullTestSuitesCommand(PullTestSuiteArgs args, SQLiteConfig sqliteConfig) {
-        super(args);
+    public PullTestSuitesCommand(RootArgs rootArgs, PullTestSuiteArgs args, SQLiteConfig sqliteConfig) {
+        super(rootArgs, args);
         this.sqliteConfig = sqliteConfig;
     }
 
@@ -41,7 +42,7 @@ public class PullTestSuitesCommand extends AbstractCommand<PullTestSuiteArgs, Vo
         logger.info("Successfully connected to database");
 
         // String extensionPath = "/home/charlie/backup/research/regex-extractor-v2/target/debug/libsqlite_regex_extensions.so";
-        regexDatabaseClient.initDatabase(args.getExtensionPath());
+        regexDatabaseClient.initDatabase(rootArgs.getExtensionPath());
         logger.info("Starting to load test suites...");
         TestSuiteService testSuiteService = new TestSuiteService(regexDatabaseClient);
 
@@ -49,7 +50,7 @@ public class PullTestSuitesCommand extends AbstractCommand<PullTestSuiteArgs, Vo
         TestSuiteStatistics testSuiteStatistics = new TestSuiteStatistics();
 
         List<RegexTestSuite> testSuites = testSuiteService
-                .loadRegexTestSuites(testSuiteStatistics)
+                .createRegexTestSuitesFromRaw(testSuiteStatistics)
                 .toList();
 
         logger.info("Saving {} test suites to original database...", testSuites.size());
