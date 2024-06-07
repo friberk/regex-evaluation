@@ -9,6 +9,7 @@ public record RegexTestSuite(
         long regexId,
         String pattern,
         Set<RegexTestSuiteString> strings,
-        AutomatonCoverage.VisitationInfoSummary coverage
+        AutomatonCoverage.VisitationInfoSummary fullMatchCoverage,
+        AutomatonCoverage.VisitationInfoSummary partialMatchCoverage
 ) {
 }

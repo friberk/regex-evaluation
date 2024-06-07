@@ -51,9 +51,12 @@ public final class RegexDatabaseClient implements AutoCloseable {
         for (RegexTestSuite testSuite : testSuites) {
             testSuiteStmt.setLong(1, testSuite.projectId());
             testSuiteStmt.setLong(2, testSuite.regexId());
-            storeDoubleOrNullOnNonFinite(testSuiteStmt, 3, testSuite.coverage().getNodeCoverage());
-            storeDoubleOrNullOnNonFinite(testSuiteStmt, 4, testSuite.coverage().getEdgeCoverage());
-            storeDoubleOrNullOnNonFinite(testSuiteStmt, 5, testSuite.coverage().getEdgePairCoverage());
+            storeDoubleOrNullOnNonFinite(testSuiteStmt, 3, testSuite.fullMatchCoverage().getNodeCoverage());
+            storeDoubleOrNullOnNonFinite(testSuiteStmt, 4, testSuite.fullMatchCoverage().getEdgeCoverage());
+            storeDoubleOrNullOnNonFinite(testSuiteStmt, 5, testSuite.fullMatchCoverage().getEdgePairCoverage());
+            storeDoubleOrNullOnNonFinite(testSuiteStmt, 6, testSuite.partialMatchCoverage().getNodeCoverage());
+            storeDoubleOrNullOnNonFinite(testSuiteStmt, 7, testSuite.partialMatchCoverage().getEdgeCoverage());
+            storeDoubleOrNullOnNonFinite(testSuiteStmt, 8, testSuite.partialMatchCoverage().getEdgePairCoverage());
 
             testSuiteStmt.executeUpdate();
             ResultSet generatedKeys = testSuiteStmt.getGeneratedKeys();

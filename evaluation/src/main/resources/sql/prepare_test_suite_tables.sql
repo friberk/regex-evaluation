@@ -8,12 +8,13 @@ CREATE TABLE IF NOT EXISTS test_suite (
     project_id INTEGER NOT NULL,
     -- the regex that this test suite belongs to, the ground truth regex
     regex_id INTEGER NOT NULL,
-    -- test suite node coverage score
-    node_coverage REAL,
-    -- test suite edge coverage score
-    edge_coverage REAL,
-    -- test suite edge pair coverage score. NULL signifies that there are no edge pairs to cover/measure
-    edge_pair_coverage REAL,
+    -- test suite node coverage scores
+    full_node_coverage REAL,
+    full_edge_coverage REAL,
+    full_edge_pair_coverage REAL,
+    partial_node_coverage REAL,
+    partial_edge_coverage REAL,
+    partial_edge_pair_coverage REAL,
     FOREIGN KEY (project_id) REFERENCES project_spec(id),
     FOREIGN KEY (regex_id) REFERENCES regex_entity(id),
     -- each project/regex pair should only have one test suite

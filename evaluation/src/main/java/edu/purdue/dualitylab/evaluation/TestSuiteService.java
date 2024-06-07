@@ -108,9 +108,13 @@ public final class TestSuiteService {
             strings.add(example.withMatchStatus(status));
         }
 
-        // get coverage info
-        AutomatonCoverage.VisitationInfoSummary visitationInfo = coverage.getVisitationInfoSummary();
-
-        return Optional.of(new RegexTestSuite(stringSet.projectId(), stringSet.regexId(), stringSet.pattern(), strings, visitationInfo));
+        return Optional.of(new RegexTestSuite(
+                stringSet.projectId(),
+                stringSet.regexId(),
+                stringSet.pattern(),
+                strings,
+                coverage.getFullMatchVisitationInfoSummary(),
+                coverage.getPartialMatchVisitationInfoSummary()
+        ));
     }
 }
