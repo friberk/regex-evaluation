@@ -6,9 +6,5 @@
  * This project uses @Incubating APIs which are subject to change.
  */
 
-rootProject.name = 'regex-evaluation'
-
-include 'dk.brics.automaton'
-include 'evaluation'
-include 'evaluation'
-
+rootProject.name = "regex-evaluation"
+include("dk.brics.automaton", "evaluation")

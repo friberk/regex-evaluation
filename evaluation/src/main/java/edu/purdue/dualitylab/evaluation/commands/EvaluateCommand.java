@@ -1,6 +1,6 @@
 package edu.purdue.dualitylab.evaluation.commands;
 
-import edu.purdue.dualitylab.evaluation.EvaluationService;
+import edu.purdue.dualitylab.evaluation.evaluation.EvaluationService;
 import edu.purdue.dualitylab.evaluation.args.EvaluateArgs;
 import edu.purdue.dualitylab.evaluation.args.RootArgs;
 import edu.purdue.dualitylab.evaluation.db.RegexDatabaseClient;
