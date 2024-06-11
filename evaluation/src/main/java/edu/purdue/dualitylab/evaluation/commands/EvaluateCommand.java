@@ -31,17 +31,14 @@ public class EvaluateCommand extends AbstractCommand<EvaluateArgs, Void> {
         logger.info("Successfully connected to database");
 
         regexDatabaseClient.initDatabase(rootArgs.getExtensionPath());
-        logger.info("Starting to load test suites...");
-
         EvaluationService service = new EvaluationService(regexDatabaseClient);
 
-        var results = service.evaluateTestSuites();
-
-        logger.info("Saving test suite results....");
-        regexDatabaseClient.insertManyTestSuiteResults(results);
-        logger.info("Done");
+        logger.info("Starting to evaluate test suites...");
+        service.evaluateAndSaveTestSuites();
 
         regexDatabaseClient.close();
+
+        logger.info("Successfully evaluated test suites");
 
         return null;
     }

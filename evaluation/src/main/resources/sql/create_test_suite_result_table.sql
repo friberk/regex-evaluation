@@ -1,4 +1,6 @@
 
+DROP TABLE IF EXISTS test_suite_result;
+
 CREATE TABLE IF NOT EXISTS test_suite_result (
     -- the test suite that this result belongs to
     test_suite_id INTEGER NOT NULL,

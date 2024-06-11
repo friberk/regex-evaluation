@@ -24,70 +24,57 @@ public class EvaluationService {
         this.databaseClient = databaseClient;
     }
 
-    public Map<Long, Set<Long>> evaluateTestSuites() throws SQLException {
+    public void evaluateAndSaveTestSuites() throws SQLException {
 
         databaseClient.setupResultsTable();
 
-        ExecutorService safeExecutionContext = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
-        ExecutorService jobExecutor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
-        CompletionService<Map<Long, Set<Long>>> jobExecutionContext = new ExecutorCompletionService<>(jobExecutor);
+        try (AutoCloseableExecutorService safeExecutionContext = new AutoCloseableExecutorService(Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors()));
+             AutoCloseableExecutorService jobExecutor = new AutoCloseableExecutorService(Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors()))) {
 
-        Map<Long, Set<Long>> testSuiteResults = new HashMap<>();
+            CompletionService<Map<Long, Set<Long>>> jobExecutionContext = new ExecutorCompletionService<>(jobExecutor);
 
-        Map<Long, List<RegexTestSuite>> projectTestSuites = testSuiteService.loadRegexTestSuites()
-                .collect(Collectors.groupingBy(RegexTestSuite::projectId));
+            Map<Long, List<RegexTestSuite>> projectTestSuites = testSuiteService.loadRegexTestSuites()
+                    .collect(Collectors.groupingBy(RegexTestSuite::projectId));
 
-        long totalTestSuites = projectTestSuites.values().stream().mapToInt(List::size).sum();
+            long totalTestSuites = projectTestSuites.values().stream().mapToInt(List::size).sum();
 
-        AtomicLong totalCollectedTestSuites = new AtomicLong();
-        projectTestSuites
-                .forEach((projectId, testSuites) -> {
-                    // load a single set of candidate regexes for this project
-                    logger.info("Starting to evaluate test suites for project {}", projectId);
-                    try {
-                        List<CompiledRegexEntity> candidateEntities = databaseClient.loadCandidateRegexes(projectId)
-                                .flatMap(candidate -> CompiledRegexEntity.tryCompile(candidate).stream())
-                                .toList();
+            AtomicLong totalCollectedTestSuites = new AtomicLong();
 
-                        for (RegexTestSuite testSuite : testSuites) {
-                            jobExecutionContext.submit(new TestSuiteEvaluator(safeExecutionContext, testSuite, candidateEntities));
-                        }
+            // iterate over each project and its test suites, iterating as we go
+            for (long projectId : projectTestSuites.keySet()) {
+                List<RegexTestSuite> testSuites = projectTestSuites.get(projectId);
 
-                        logger.info("Waiting on test suites...");
+                // load a single set of candidate regexes for this project
+                logger.info("Starting to evaluate test suites for project {}", projectId);
+                List<CompiledRegexEntity> candidateEntities = databaseClient.loadCandidateRegexes(projectId)
+                        .flatMap(candidate -> CompiledRegexEntity.tryCompile(candidate).stream())
+                        .toList();
 
-                        // collect everything
-                        for (int i = testSuites.size(); i > 0; i--) {
-                            Future<Map<Long, Set<Long>>> future = jobExecutionContext.take();
-                            Map<Long, Set<Long>> result = future.get();
-                            testSuiteResults.putAll(result);
-                            logger.info("{}/{} test suites from project {} remaining", i - 1, testSuites.size(), projectId);
-                            totalCollectedTestSuites.incrementAndGet();
-                        }
+                for (RegexTestSuite testSuite : testSuites) {
+                    jobExecutionContext.submit(new TestSuiteEvaluator(safeExecutionContext, testSuite, candidateEntities));
+                }
 
-                        logger.info("Finished evaluating test suites for project {}", projectId);
-                        logger.info("Collected {}/{} total test suites", totalCollectedTestSuites.get(), totalTestSuites);
+                logger.info("Waiting on test suites...");
 
-                    } catch (SQLException | InterruptedException | ExecutionException e) {
-                        throw new RuntimeException(e);
-                    }
-                });
+                // collect everything
+                Map<Long, Set<Long>> collectedTestSuites = new HashMap<>();
+                for (int i = testSuites.size(); i > 0; i--) {
+                    Future<Map<Long, Set<Long>>> future = jobExecutionContext.take();
+                    Map<Long, Set<Long>> result = future.get();
+                    collectedTestSuites.putAll(result);
+                    logger.info("{}/{} test suites from project {} remaining", i - 1, testSuites.size(), projectId);
+                    totalCollectedTestSuites.incrementAndGet();
+                }
 
-        safeExecutionContext.shutdown();
-        jobExecutor.shutdown();
-        try {
-            boolean success = jobExecutor.awaitTermination(5, TimeUnit.MINUTES);
-            if (!success) {
-                jobExecutor.shutdownNow();
+                logger.info("Finished evaluating test suites for project {}", projectId);
+                logger.info("Collected {}/{} total test suites", totalCollectedTestSuites.get(), totalTestSuites);
+
+                logger.info("Saving test suites to database...");
+                databaseClient.insertManyTestSuiteResults(collectedTestSuites);
+                logger.info("Successfully saved to database");
             }
-
-            success = safeExecutionContext.awaitTermination(5, TimeUnit.MINUTES);
-            if (!success) {
-                safeExecutionContext.shutdownNow();
-            }
-        } catch (InterruptedException e) {
+        } catch (SQLException | InterruptedException | ExecutionException e) {
             throw new RuntimeException(e);
         }
-
-        return testSuiteResults;
     }
 }

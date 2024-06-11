@@ -51,6 +51,9 @@ public final class RegexDatabaseClient implements AutoCloseable {
         PreparedStatement testSuiteStmt = connection.prepareStatement(insertTestSuiteText, Statement.RETURN_GENERATED_KEYS);
         PreparedStatement stringStmt = connection.prepareStatement(insertString);
 
+        boolean oldAutoCommit = connection.getAutoCommit();
+        connection.setAutoCommit(false);
+
         for (RegexTestSuite testSuite : testSuites) {
             testSuiteStmt.setLong(1, testSuite.projectId());
             testSuiteStmt.setLong(2, testSuite.regexId());
@@ -81,16 +84,21 @@ public final class RegexDatabaseClient implements AutoCloseable {
             }
         }
 
+        connection.commit();
+        connection.setAutoCommit(oldAutoCommit);
+
         testSuiteStmt.close();
         stringStmt.close();
     }
 
     public void setupResultsTable() throws SQLException {
-        executeNamedQuery("create_test_suite_result_table.sql");
+        executedBatchNamedQuery("create_test_suite_result_table.sql");
     }
 
     public void insertManyTestSuiteResults(Map<Long, Set<Long>> testSuitesAndResults) throws SQLException {
         String queryText = loadNamedQuery("insert_test_suite_result.sql").orElseThrow();
+        boolean oldAutoCommitStatus = connection.getAutoCommit();
+        connection.setAutoCommit(false);
         PreparedStatement stmt = connection.prepareStatement(queryText);
         for (Map.Entry<Long, Set<Long>> entry : testSuitesAndResults.entrySet()) {
             long testSuiteId = entry.getKey();
@@ -100,6 +108,8 @@ public final class RegexDatabaseClient implements AutoCloseable {
                 stmt.execute();
             }
         }
+        connection.commit();
+        connection.setAutoCommit(oldAutoCommitStatus);
 
         stmt.close();
     }
@@ -174,7 +184,9 @@ public final class RegexDatabaseClient implements AutoCloseable {
 
         Statement stmt = connection.createStatement();
         for (String batchQueryText : queryText.split(";")) {
-            stmt.addBatch(batchQueryText);
+            String trimmedQueryText = batchQueryText.trim();
+            if (!trimmedQueryText.isBlank())
+                stmt.addBatch(trimmedQueryText);
         }
 
         int[] results = stmt.executeBatch();
