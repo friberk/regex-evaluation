@@ -3,6 +3,7 @@ package edu.purdue.dualitylab.evaluation.evaluation;
 import edu.purdue.dualitylab.evaluation.TestSuiteService;
 import edu.purdue.dualitylab.evaluation.db.RegexDatabaseClient;
 import edu.purdue.dualitylab.evaluation.model.RegexTestSuite;
+import edu.purdue.dualitylab.evaluation.model.RegexTestSuiteSolution;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -29,9 +30,9 @@ public class EvaluationService {
         databaseClient.setupResultsTable();
 
         try (AutoCloseableExecutorService safeExecutionContext = new AutoCloseableExecutorService(Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors()));
-             AutoCloseableExecutorService jobExecutor = new AutoCloseableExecutorService(Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors()))) {
+             AutoCloseableExecutorService jobExecutor = new AutoCloseableExecutorService(Executors.newWorkStealingPool(Runtime.getRuntime().availableProcessors()))) {
 
-            CompletionService<Map<Long, Set<Long>>> jobExecutionContext = new ExecutorCompletionService<>(jobExecutor);
+            CompletionService<Map<Long, Set<RegexTestSuiteSolution>>> jobExecutionContext = new ExecutorCompletionService<>(jobExecutor);
 
             Map<Long, List<RegexTestSuite>> projectTestSuites = testSuiteService.loadRegexTestSuites()
                     .collect(Collectors.groupingBy(RegexTestSuite::projectId));
@@ -57,10 +58,10 @@ public class EvaluationService {
                 logger.info("Waiting on test suites...");
 
                 // collect everything
-                Map<Long, Set<Long>> collectedTestSuites = new HashMap<>();
+                Map<Long, Set<RegexTestSuiteSolution>> collectedTestSuites = new HashMap<>();
                 for (int i = testSuites.size(); i > 0; i--) {
-                    Future<Map<Long, Set<Long>>> future = jobExecutionContext.take();
-                    Map<Long, Set<Long>> result = future.get();
+                    Future<Map<Long, Set<RegexTestSuiteSolution>>> future = jobExecutionContext.take();
+                    Map<Long, Set<RegexTestSuiteSolution>> result = future.get();
                     collectedTestSuites.putAll(result);
                     logger.info("{}/{} test suites from project {} remaining", i - 1, testSuites.size(), projectId);
                     totalCollectedTestSuites.incrementAndGet();

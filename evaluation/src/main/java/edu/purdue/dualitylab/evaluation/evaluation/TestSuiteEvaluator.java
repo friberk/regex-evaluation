@@ -1,7 +1,7 @@
 package edu.purdue.dualitylab.evaluation.evaluation;
 
-import edu.purdue.dualitylab.evaluation.model.CandidateRegex;
 import edu.purdue.dualitylab.evaluation.model.RegexTestSuite;
+import edu.purdue.dualitylab.evaluation.model.RegexTestSuiteSolution;
 import edu.purdue.dualitylab.evaluation.model.RegexTestSuiteString;
 import edu.purdue.dualitylab.evaluation.safematch.SafeMatcher;
 import org.slf4j.Logger;
@@ -16,7 +16,7 @@ import java.util.stream.Collectors;
 /**
  * Used to find regexes that works for a regex
  */
-public class TestSuiteEvaluator implements Callable<Map<Long, Set<Long>>> {
+public class TestSuiteEvaluator implements Callable<Map<Long, Set<RegexTestSuiteSolution>>> {
     private static final Logger logger = LoggerFactory.getLogger(TestSuiteEvaluator.class);
 
     /**
@@ -42,10 +42,10 @@ public class TestSuiteEvaluator implements Callable<Map<Long, Set<Long>>> {
     }
 
     @Override
-    public Map<Long, Set<Long>> call() throws Exception {
-        Set<Long> hits = this.candidates.stream()
+    public Map<Long, Set<RegexTestSuiteSolution>> call() throws Exception {
+        Set<RegexTestSuiteSolution> hits = this.candidates.stream()
                 .filter(this::regexSatisfiesTestSuite)
-                .map(CompiledRegexEntity::id)
+                .map(candidate -> new RegexTestSuiteSolution(candidate.id(), candidate.projectId()))
                 .collect(Collectors.toSet());
 
         return Map.of(testSuite.id(), hits);

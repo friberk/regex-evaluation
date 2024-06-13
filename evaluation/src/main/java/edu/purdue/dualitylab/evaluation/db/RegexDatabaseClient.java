@@ -95,16 +95,17 @@ public final class RegexDatabaseClient implements AutoCloseable {
         executedBatchNamedQuery("create_test_suite_result_table.sql");
     }
 
-    public void insertManyTestSuiteResults(Map<Long, Set<Long>> testSuitesAndResults) throws SQLException {
+    public void insertManyTestSuiteResults(Map<Long, Set<RegexTestSuiteSolution>> testSuitesAndResults) throws SQLException {
         String queryText = loadNamedQuery("insert_test_suite_result.sql").orElseThrow();
         boolean oldAutoCommitStatus = connection.getAutoCommit();
         connection.setAutoCommit(false);
         PreparedStatement stmt = connection.prepareStatement(queryText);
-        for (Map.Entry<Long, Set<Long>> entry : testSuitesAndResults.entrySet()) {
+        for (Map.Entry<Long, Set<RegexTestSuiteSolution>> entry : testSuitesAndResults.entrySet()) {
             long testSuiteId = entry.getKey();
-            for (long matchId : entry.getValue()) {
+            for (RegexTestSuiteSolution match : entry.getValue()) {
                 stmt.setLong(1, testSuiteId);
-                stmt.setLong(2, matchId);
+                stmt.setLong(2, match.regexId());
+                stmt.setLong(3, match.projectId());
                 stmt.execute();
             }
         }

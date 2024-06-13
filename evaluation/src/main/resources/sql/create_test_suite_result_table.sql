@@ -6,8 +6,11 @@ CREATE TABLE IF NOT EXISTS test_suite_result (
     test_suite_id INTEGER NOT NULL,
     -- the regex that satisfies this test suite
     regex_id INTEGER NOT NULL,
+    -- the project that this regex solution came from
+    project_id INTEGER NOT NULL,
     -- this table's primary key is a composite. Every test suite/regex pair should be unique
     PRIMARY KEY (test_suite_id, regex_id),
     FOREIGN KEY (test_suite_id) REFERENCES test_suite(id),
-    FOREIGN KEY (regex_id) REFERENCES regex_entity(id)
+    FOREIGN KEY (regex_id) REFERENCES regex_entity(id),
+    FOREIGN KEY (project_id) REFERENCES project_spec(id)
 );
