@@ -6,5 +6,7 @@ FROM regex_subject
 INNER JOIN candidate_regexes_and_origins ON candidate_regexes_and_origins.project_id = regex_subject.project_id AND candidate_regexes_and_origins.regex_id = regex_subject.regex_id
     -- pull the regex entity to get the pattern
 INNER JOIN regex_entity ON candidate_regexes_and_origins.regex_id = regex_entity.id
+WHERE
+    FILTER_REGEX_PATTERN(regex_entity.pattern, 5)
     -- group by regex id
 ORDER BY regex_entity.id;

@@ -4,6 +4,7 @@ import edu.purdue.dualitylab.evaluation.TestSuiteService;
 import edu.purdue.dualitylab.evaluation.db.RegexDatabaseClient;
 import edu.purdue.dualitylab.evaluation.model.RegexTestSuite;
 import edu.purdue.dualitylab.evaluation.model.RegexTestSuiteSolution;
+import edu.purdue.dualitylab.evaluation.safematch.SafeMatcher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -35,6 +36,7 @@ public class EvaluationService {
             CompletionService<Map<Long, Set<RegexTestSuiteSolution>>> jobExecutionContext = new ExecutorCompletionService<>(jobExecutor);
 
             Map<Long, List<RegexTestSuite>> projectTestSuites = testSuiteService.loadRegexTestSuites()
+                    .filter(testSuite -> testSuite.hasPositiveAndNegativeStrings(SafeMatcher.MatchMode.PARTIAL, 1))
                     .collect(Collectors.groupingBy(RegexTestSuite::projectId));
 
             long totalTestSuites = projectTestSuites.values().stream().mapToInt(List::size).sum();
