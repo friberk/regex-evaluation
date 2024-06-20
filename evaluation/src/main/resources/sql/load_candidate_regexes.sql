@@ -4,6 +4,7 @@ WITH regex_not_in_test_suite_project AS (
     FROM regex_source_usage
     -- find all source usages that don't come from the test suite's project
     WHERE project_id != ?1
+    GROUP BY regex_id
 )
 SELECT id, regex_not_in_test_suite_project.project_id, regex_entity.pattern
 FROM regex_entity
