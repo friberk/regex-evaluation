@@ -3,6 +3,7 @@ import java.net.URI
 plugins {
     java
     application
+    antlr
     id("com.bmuschko.docker-remote-api") version "9.4.0"
     id("com.bmuschko.docker-java-application") version "9.4.0"
 }
