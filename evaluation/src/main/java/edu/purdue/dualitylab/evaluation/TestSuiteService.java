@@ -4,12 +4,13 @@ import dk.brics.automaton.*;
 import edu.purdue.dualitylab.evaluation.db.RawTestSuiteCollector;
 import edu.purdue.dualitylab.evaluation.db.RegexDatabaseClient;
 import edu.purdue.dualitylab.evaluation.model.*;
+import edu.purdue.dualitylab.evaluation.safematch.SafeMatcher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.sql.SQLException;
 import java.util.*;
-import java.util.regex.Matcher;
+import java.util.concurrent.ExecutorService;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 import java.util.stream.Collectors;
@@ -36,13 +37,13 @@ public final class TestSuiteService {
                 .stream();
     }
 
-    public Stream<RegexTestSuite> createRegexTestSuitesFromRaw() throws SQLException {
-        return createRegexTestSuitesFromRaw(null);
+    public Stream<RegexTestSuite> createRegexTestSuitesFromRaw(ExecutorService safeMatchContext) throws SQLException {
+        return createRegexTestSuitesFromRaw(null, safeMatchContext);
     }
 
-    public Stream<RegexTestSuite> createRegexTestSuitesFromRaw(TestSuiteStatistics stats) throws SQLException {
+    public Stream<RegexTestSuite> createRegexTestSuitesFromRaw(TestSuiteStatistics stats, ExecutorService safeMatchContext) throws SQLException {
         return loadRawRegexTestSuites().stream()
-                .flatMap(rawSet -> expandTestSuite(rawSet, stats).stream());
+                .flatMap(rawSet -> expandTestSuite(rawSet, stats, safeMatchContext).stream());
     }
 
     private List<RegexStringSet> loadRawRegexTestSuites() throws SQLException {
@@ -77,7 +78,7 @@ public final class TestSuiteService {
         return allRegexStringSets;
     }
 
-    private Optional<RegexTestSuite> expandTestSuite(RegexStringSet stringSet, TestSuiteStatistics nullableStatistics) {
+    private Optional<RegexTestSuite> expandTestSuite(RegexStringSet stringSet, TestSuiteStatistics nullableStatistics, ExecutorService safeMatchContext) {
         Optional<TestSuiteStatistics> statistics = Optional.ofNullable(nullableStatistics);
         AutomatonCoverage coverage;
         Pattern pattern;
@@ -115,9 +116,20 @@ public final class TestSuiteService {
         Set<RegexTestSuiteString> strings = new HashSet<>();
         for (RegexTestSuiteString example : stringSet.strings()) {
             coverage.evaluate(example.subject());
-            Matcher matcher = pattern.matcher(example.subject());
-            MatchStatus status = MatchStatus.compute(matcher);
-            strings.add(example.withMatchStatus(status));
+            SafeMatcher matcher = new SafeMatcher(pattern, safeMatchContext);
+            Optional<MatchStatus> status = MatchStatus.compute(matcher, example.subject());
+            if (status.isEmpty()) {
+                // if we got empty, then the pattern timed out while evaluating this string. We should drop the string,
+                // and also consider removing the whole test suite
+                continue;
+            }
+
+            strings.add(example.withMatchStatus(status.get()));
+        }
+
+        // if the test suite has no strings, then there's nothing to save
+        if (strings.isEmpty()) {
+            return Optional.empty();
         }
 
         return Optional.of(new RegexTestSuite(

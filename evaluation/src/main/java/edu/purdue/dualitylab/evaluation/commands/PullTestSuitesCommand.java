@@ -6,7 +6,9 @@ import edu.purdue.dualitylab.evaluation.TestSuiteStatistics;
 import edu.purdue.dualitylab.evaluation.args.PullTestSuiteArgs;
 import edu.purdue.dualitylab.evaluation.args.RootArgs;
 import edu.purdue.dualitylab.evaluation.db.RegexDatabaseClient;
+import edu.purdue.dualitylab.evaluation.evaluation.AutoCloseableExecutorService;
 import edu.purdue.dualitylab.evaluation.model.RegexTestSuite;
+import edu.purdue.dualitylab.evaluation.safematch.SafeMatcher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.sqlite.SQLiteConfig;
@@ -19,6 +21,7 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.util.Collection;
 import java.util.List;
+import java.util.concurrent.Executors;
 
 public class PullTestSuitesCommand extends AbstractCommand<PullTestSuiteArgs, Void> {
 
@@ -49,9 +52,18 @@ public class PullTestSuitesCommand extends AbstractCommand<PullTestSuiteArgs, Vo
         // String reportPath = "/home/charlie/backup/research/5-30-regexes/test-suites.ndjson";
         TestSuiteStatistics testSuiteStatistics = new TestSuiteStatistics();
 
-        List<RegexTestSuite> testSuites = testSuiteService
-                .createRegexTestSuitesFromRaw(testSuiteStatistics)
-                .toList();
+        List<RegexTestSuite> testSuites;
+        try (
+                AutoCloseableExecutorService safeExecutionContext = new AutoCloseableExecutorService(Executors.newSingleThreadExecutor())
+                ) {
+
+            testSuites = testSuiteService
+                    .createRegexTestSuitesFromRaw(testSuiteStatistics, safeExecutionContext)
+                    .toList();
+        } catch (Exception e) {
+            logger.error("Error while loading test suites", e);
+            throw new RuntimeException(e);
+        }
 
         logger.info("Saving {} test suites to original database...", testSuites.size());
         regexDatabaseClient.insertManyTestSuites(testSuites);
@@ -80,7 +92,8 @@ public class PullTestSuitesCommand extends AbstractCommand<PullTestSuiteArgs, Vo
         ObjectMapper mapper = new ObjectMapper();
 
         logger.info("Writing test suites to file {}", output.getCanonicalPath());
-        testSuites
+        testSuites.stream()
+                .filter(regexTestSuite -> regexTestSuite.hasPositiveAndNegativeStrings(SafeMatcher.MatchMode.FULL, 1))
                 .forEach(testSuite -> {
                     try {
                         String testSuiteLine = mapper.writeValueAsString(testSuite);
