@@ -38,7 +38,7 @@ public final class RegexDatabaseClient implements AutoCloseable {
     }
 
     public Stream<RawRegexTestSuiteEntry> loadRawRegexTestSuites() throws SQLException {
-        executeNamedQuery("create_candidate_regexes.sql");
+        // executeNamedQuery("create_candidate_regexes.sql");
         String queryText = loadNamedQuery("load_test_suites.sql").orElseThrow();
         return streamQuery(queryText, RawRegexTestSuiteEntry.class);
     }

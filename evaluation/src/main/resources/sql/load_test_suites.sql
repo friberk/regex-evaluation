@@ -1,6 +1,25 @@
 
+WITH candidate_regexes_and_origins AS (
+    SELECT regex_entity.id AS regex_id, project_spec.id AS project_id, regex_source_usage.id AS source_usage_id
+    FROM regex_source_usage
+             -- take regexes that are static and dynamic and have source usages
+             INNER JOIN regex_entity ON regex_source_usage.regex_id = regex_entity.id
+        -- also pull project info
+             INNER JOIN project_spec ON regex_source_usage.project_id = project_spec.id
+    WHERE
+        regex_entity.static = TRUE AND
+        regex_entity.dynamic = TRUE AND
+        FILTER_REGEX_PATTERN(regex_entity.pattern, 5)
+)
 -- pull the regex pattern, originating project, source usage, example string, and regex function
-SELECT regex_entity.id as regex_id, regex_entity.pattern, candidate_regexes_and_origins.project_id, source_usage_id, regex_subject.project_id as subject_project_id, subject, func
+SELECT
+    regex_entity.id AS regex_id,
+    regex_entity.pattern,
+    candidate_regexes_and_origins.project_id,
+    source_usage_id,
+    regex_subject.project_id AS subject_project_id,
+    subject,
+    func
 FROM regex_subject
     -- pull from the above table, joining on project and regex id
 INNER JOIN candidate_regexes_and_origins ON candidate_regexes_and_origins.project_id = regex_subject.project_id AND candidate_regexes_and_origins.regex_id = regex_subject.regex_id
