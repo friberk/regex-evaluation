@@ -31,14 +31,16 @@ public class EvaluationMain {
             System.exit(0);
         }
 
+        SQLiteConfig dbConfig = sqliteConfig(rootArgs.getTempStoreMode());
+
         switch (jc.getParsedCommand()) {
             case "pull-test-suites":
-                PullTestSuitesCommand pullTestSuitesCmd = new PullTestSuitesCommand(rootArgs, pullTestSuiteArgs, sqliteConfig());
+                PullTestSuitesCommand pullTestSuitesCmd = new PullTestSuitesCommand(rootArgs, pullTestSuiteArgs, dbConfig);
                 pullTestSuitesCmd.call();
                 break;
 
             case "evaluate":
-                EvaluateCommand evaluateCmd = new EvaluateCommand(rootArgs, evaluateArgs, sqliteConfig());
+                EvaluateCommand evaluateCmd = new EvaluateCommand(rootArgs, evaluateArgs, dbConfig);
                 evaluateCmd.call();
                 break;
 
@@ -47,9 +49,10 @@ public class EvaluationMain {
         }
     }
 
-    public static SQLiteConfig sqliteConfig() {
+    public static SQLiteConfig sqliteConfig(SQLiteConfig.TempStore tempStore) {
         SQLiteConfig config = new SQLiteConfig();
         config.enableLoadExtension(true);
+        config.setTempStore(tempStore);
         config.setSynchronous(SQLiteConfig.SynchronousMode.OFF);
         return config;
     }
