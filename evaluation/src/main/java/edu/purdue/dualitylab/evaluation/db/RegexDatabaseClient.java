@@ -4,9 +4,6 @@ import edu.purdue.dualitylab.evaluation.model.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.sql.rowset.JoinRowSet;
-import javax.sql.rowset.RowSetFactory;
-import javax.sql.rowset.RowSetProvider;
 import java.io.*;
 import java.sql.*;
 import java.util.Collection;
@@ -37,10 +34,12 @@ public final class RegexDatabaseClient implements AutoCloseable {
         stmt.close();
     }
 
-    public Stream<RawRegexTestSuiteEntry> loadRawRegexTestSuites() throws SQLException {
+    public Stream<RawRegexTestSuiteEntry> loadRawRegexTestSuites(int maxStringLength) throws SQLException {
         executeNamedQuery("create_candidate_regexes.sql");
         String queryText = loadNamedQuery("load_test_suites.sql").orElseThrow();
-        return streamQuery(queryText, RawRegexTestSuiteEntry.class);
+        PreparedStatement statement = connection.prepareStatement(queryText);
+        statement.setInt(1, maxStringLength);
+        return streamQuery(statement, RawRegexTestSuiteEntry.class);
     }
 
     public void insertManyTestSuites(Collection<RegexTestSuite> testSuites) throws SQLException {

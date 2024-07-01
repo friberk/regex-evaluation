@@ -13,11 +13,18 @@ public class PullTestSuiteArgs {
     @Parameter(names = {"-o", "--json-output"}, description = "Optional path to write test suites in NDJSON format to")
     private String jsonOutputPath;
 
+    @Parameter(names = { "-l", "--max-string-length" }, description = "Inclusive upper limit on test suite string length")
+    private Integer maxStringLength;
+
     public String getDatabaseFile() {
         return databaseFile;
     }
 
     public Optional<String> getJsonOutputPath() {
         return Optional.ofNullable(jsonOutputPath);
+    }
+
+    public Optional<Integer> getMaxStringLength() {
+        return Optional.ofNullable(maxStringLength);
     }
 }

@@ -57,8 +57,10 @@ public class PullTestSuitesCommand extends AbstractCommand<PullTestSuiteArgs, Vo
                 AutoCloseableExecutorService safeExecutionContext = new AutoCloseableExecutorService(Executors.newSingleThreadExecutor())
                 ) {
 
+            int maxStringLength = args.getMaxStringLength().orElse(100);
+
             testSuites = testSuiteService
-                    .createRegexTestSuitesFromRaw(testSuiteStatistics, safeExecutionContext)
+                    .createRegexTestSuitesFromRaw(maxStringLength, testSuiteStatistics, safeExecutionContext)
                     .toList();
         } catch (Exception e) {
             logger.error("Error while loading test suites", e);

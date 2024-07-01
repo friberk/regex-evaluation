@@ -14,6 +14,7 @@ INNER JOIN candidate_regexes_and_origins ON candidate_regexes_and_origins.projec
     -- pull the regex entity to get the pattern
 INNER JOIN regex_entity ON candidate_regexes_and_origins.regex_id = regex_entity.id
 WHERE
-    FILTER_REGEX_PATTERN(regex_entity.pattern, 5)
+    FILTER_REGEX_PATTERN(regex_entity.pattern, 5) AND
+    LENGTH(regex_subject.subject) <= ?1
     -- group by regex id
 ORDER BY regex_entity.id;

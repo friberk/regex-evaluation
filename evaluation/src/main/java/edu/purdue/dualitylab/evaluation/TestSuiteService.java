@@ -37,21 +37,21 @@ public final class TestSuiteService {
                 .stream();
     }
 
-    public Stream<RegexTestSuite> createRegexTestSuitesFromRaw(ExecutorService safeMatchContext) throws SQLException {
-        return createRegexTestSuitesFromRaw(null, safeMatchContext);
+    public Stream<RegexTestSuite> createRegexTestSuitesFromRaw(int maxStringLength, ExecutorService safeMatchContext) throws SQLException {
+        return createRegexTestSuitesFromRaw(maxStringLength, null, safeMatchContext);
     }
 
-    public Stream<RegexTestSuite> createRegexTestSuitesFromRaw(TestSuiteStatistics stats, ExecutorService safeMatchContext) throws SQLException {
-        return loadRawRegexTestSuites().stream()
+    public Stream<RegexTestSuite> createRegexTestSuitesFromRaw(int maxStringLength, TestSuiteStatistics stats, ExecutorService safeMatchContext) throws SQLException {
+        return loadRawRegexTestSuites(maxStringLength).stream()
                 .flatMap(rawSet -> expandTestSuite(rawSet, stats, safeMatchContext).stream());
     }
 
-    private List<RegexStringSet> loadRawRegexTestSuites() throws SQLException {
+    private List<RegexStringSet> loadRawRegexTestSuites(int maxStringLength) throws SQLException {
 
         List<RegexStringSet> allRegexStringSets = new ArrayList<>();
 
         // first, group by project...
-        var groupedByProjects = databaseClient.loadRawRegexTestSuites()
+        var groupedByProjects = databaseClient.loadRawRegexTestSuites(maxStringLength)
                 .collect(Collectors.groupingBy(RawRegexTestSuiteEntry::projectId));
 
         for (var projectEntry : groupedByProjects.entrySet()) {
@@ -59,6 +59,8 @@ public final class TestSuiteService {
             // ...then by regex...
             Map<Long, List<RawRegexTestSuiteEntry>> groupByRegexes = projectEntry.getValue().stream()
                     .collect(Collectors.groupingBy(RawRegexTestSuiteEntry::regexId));
+
+            logger.info("project {} has {} test suites", projectEntry.getKey(), groupByRegexes.size());
 
             for (var regexEntry : groupByRegexes.entrySet()) {
                 // ... and finally combine everything together
@@ -101,6 +103,10 @@ public final class TestSuiteService {
             return Optional.empty();
         } catch (DfaBudgetExceededException exe) {
             logger.warn("DFA budget exceeded for pattern /{}/: {}", stringSet.pattern(), exe.getMessage());
+            statistics.ifPresent(TestSuiteStatistics::incrementDFABudgetExceeded);
+            return Optional.empty();
+        } catch (StackOverflowError so) {
+            logger.warn("StackOverflow while building automaton for pattern /{}/: {}", stringSet.pattern(), so.getMessage());
             statistics.ifPresent(TestSuiteStatistics::incrementDFABudgetExceeded);
             return Optional.empty();
         }
