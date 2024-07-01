@@ -1,4 +1,4 @@
-CREATE VIEW candidate_regexes_and_origins AS
+CREATE VIEW IF NOT EXISTS candidate_regexes_and_origins AS
     -- records a statically (and dynamically) extracted regex, the source originating-project, and the specific source usage
 SELECT regex_entity.id AS regex_id, project_spec.id AS project_id, regex_source_usage.id AS source_usage_id
 FROM regex_source_usage
