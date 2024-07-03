@@ -36,7 +36,6 @@ public class EvaluationService {
             CompletionService<Map<Long, Set<RegexTestSuiteSolution>>> jobExecutionContext = new ExecutorCompletionService<>(jobExecutor);
 
             Map<Long, List<RegexTestSuite>> projectTestSuites = testSuiteService.loadRegexTestSuites()
-                    .filter(testSuite -> testSuite.hasPositiveAndNegativeStrings(SafeMatcher.MatchMode.PARTIAL, 1))
                     .collect(Collectors.groupingBy(RegexTestSuite::projectId));
 
             long totalTestSuites = projectTestSuites.values().stream().mapToInt(List::size).sum();

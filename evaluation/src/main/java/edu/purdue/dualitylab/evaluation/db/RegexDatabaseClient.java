@@ -1,6 +1,7 @@
 package edu.purdue.dualitylab.evaluation.db;
 
 import edu.purdue.dualitylab.evaluation.model.*;
+import edu.purdue.dualitylab.evaluation.util.IndeterminateBoolean;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -107,6 +108,9 @@ public final class RegexDatabaseClient implements AutoCloseable {
                 stmt.setLong(1, testSuiteId);
                 stmt.setLong(2, match.regexId());
                 stmt.setLong(3, match.projectId());
+                storeIndeterminateBoolean(stmt, 4, match.fullMatch());
+                storeIndeterminateBoolean(stmt, 5, match.partialMatch());
+
                 stmt.execute();
             }
         }
@@ -226,6 +230,15 @@ public final class RegexDatabaseClient implements AutoCloseable {
             stmt.setDouble(columnIdx, value);
         } else {
             stmt.setNull(columnIdx, Types.DOUBLE);
+        }
+    }
+
+    private static void storeIndeterminateBoolean(PreparedStatement stmt, int columnIndex, IndeterminateBoolean ib) throws SQLException {
+        Optional<Boolean> optBool = ib.toOptionalBoolean();
+        if (optBool.isPresent()) {
+            stmt.setBoolean(columnIndex, optBool.get());
+        } else {
+            stmt.setNull(columnIndex, Types.BOOLEAN);
         }
     }
 }

@@ -8,6 +8,12 @@ CREATE TABLE IF NOT EXISTS test_suite_result (
     regex_id INTEGER NOT NULL,
     -- the project that this regex solution came from
     project_id INTEGER NOT NULL,
+    -- if true, then this result is a "full match" test suite result. NULL indicates that we couldn't assess if it
+    -- matches or not because the test suite did not satisfy the filter
+    full_match_result BOOLEAN,
+    -- if true, then this result is a "partial match" test suite result. NULL indicates that we couldn't assess if it
+    -- matches or not because the test suite did not satisfy the filter
+    partial_match_result BOOLEAN,
     -- this table's primary key is a composite. Every test suite/regex pair should be unique
     PRIMARY KEY (test_suite_id, regex_id),
     FOREIGN KEY (test_suite_id) REFERENCES test_suite(id),
