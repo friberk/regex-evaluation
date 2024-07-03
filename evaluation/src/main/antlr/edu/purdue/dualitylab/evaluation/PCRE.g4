@@ -37,6 +37,10 @@
 
 grammar PCRE;
 
+@header {
+    package edu.purdue.dualitylab.evaluation;
+}
+
 pcre
     : alternation? EOF
     ;

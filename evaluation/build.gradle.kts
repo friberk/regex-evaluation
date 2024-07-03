@@ -31,6 +31,8 @@ dependencies {
     // sqlite driver for JDBC
     implementation("org.xerial:sqlite-jdbc:3.46.0.0")
 
+    antlr("org.antlr:antlr4:4.9.2")
+
     // logging
     implementation("org.slf4j:slf4j-api:2.0.13")
     implementation("org.slf4j:slf4j-simple:2.0.13")
