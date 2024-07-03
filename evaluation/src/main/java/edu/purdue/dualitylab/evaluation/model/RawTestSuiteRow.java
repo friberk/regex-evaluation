@@ -18,10 +18,12 @@ public record RawTestSuiteRow(
         @DbField(name = "subject") String subject,
         @DbField(name = "func") String func,
         @DbField(name = "full_match") Boolean fullMatch,
-        @DbField(name = "partial_match") Boolean partialMatch
+        @DbField(name = "partial_match") Boolean partialMatch,
+        @DbField(name = "first_sub_match_start") Integer partialMatchStartIdx,
+        @DbField(name = "first_sub_match_end") Integer partialMatchEndIdx
 ) {
     private MatchStatus matchStatus() {
-        return new MatchStatus(fullMatch, partialMatch);
+        return new MatchStatus(fullMatch, partialMatch, partialMatchStartIdx, partialMatchEndIdx);
     }
 
     public AutomatonCoverage.VisitationInfoSummary fullCoverageSummary() {

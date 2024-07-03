@@ -35,6 +35,12 @@ CREATE TABLE IF NOT EXISTS test_suite_string (
     full_match BOOLEAN,
     -- if this string is partially matched by the subject
     partial_match BOOLEAN,
+    -- if this string is a partial match, this is the start index of the substring found by the regex. If it is not a
+    -- partial match, then it is -1
+    first_sub_match_start INTEGER,
+    -- if this string is a partial match, this is the end index exclusive of the substring found by the regex. If it
+    -- is not a partial match, then it is -1
+    first_sub_match_end INTEGER,
     FOREIGN KEY (test_suite_id) REFERENCES test_suite(id),
     -- each test suite should have a unique subject string. Func is factored in so that, if the same string
     -- is run with different functions, we can record that

@@ -85,15 +85,16 @@ public class PullTestSuitesCommand extends AbstractCommand<PullTestSuiteArgs, Vo
     }
 
     private void saveTestSuitesToFile(String path, Collection<RegexTestSuite> testSuites) throws IOException {
-
-        File output = new File(path);
+        String fullMatchTestSuites = String.format("%s.fullmatch", path);
+        String partialMatchTestSuites = String.format("%s.partialmatch", path);
+        File output = new File(fullMatchTestSuites);
         if (!output.exists()) {
             output.createNewFile();
         }
         BufferedWriter testSuiteWriter = new BufferedWriter(new FileWriter(output));
         ObjectMapper mapper = new ObjectMapper();
 
-        logger.info("Writing test suites to file {}", output.getCanonicalPath());
+        logger.info("Writing full test suites to file {}", output.getCanonicalPath());
         testSuites.stream()
                 .filter(regexTestSuite -> regexTestSuite.hasPositiveAndNegativeStrings(SafeMatcher.MatchMode.FULL, 1))
                 .forEach(testSuite -> {
@@ -108,6 +109,27 @@ public class PullTestSuitesCommand extends AbstractCommand<PullTestSuiteArgs, Vo
 
         testSuiteWriter.flush();
         testSuiteWriter.close();
-        logger.info("Successfully saved to database");
+
+        File partialOutput = new File(partialMatchTestSuites);
+        if (!partialOutput.exists()) {
+            partialOutput.createNewFile();
+        }
+        BufferedWriter partialTestSuiteWriter = new BufferedWriter(new FileWriter(partialOutput));
+
+        logger.info("Writing partial test suites to file {}", partialOutput.getCanonicalPath());
+        testSuites.stream()
+                .filter(regexTestSuite -> regexTestSuite.hasPositiveAndNegativeStrings(SafeMatcher.MatchMode.PARTIAL, 1))
+                .forEach(testSuite -> {
+                    try {
+                        String testSuiteLine = mapper.writeValueAsString(testSuite);
+                        partialTestSuiteWriter.write(testSuiteLine);
+                        partialTestSuiteWriter.newLine();
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                });
+
+        partialTestSuiteWriter.flush();
+        partialTestSuiteWriter.close();
     }
 }

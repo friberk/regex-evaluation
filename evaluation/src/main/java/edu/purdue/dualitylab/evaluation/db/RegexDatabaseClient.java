@@ -78,6 +78,8 @@ public final class RegexDatabaseClient implements AutoCloseable {
                 stringStmt.setString(3, str.func());
                 stringStmt.setBoolean(4, str.matchStatus().fullMatch());
                 stringStmt.setBoolean(5, str.matchStatus().partialMatch());
+                stringStmt.setInt(6, str.matchStatus().partialMatchStartIdx());
+                stringStmt.setInt(7, str.matchStatus().partialMatchEndIdx());
 
                 stringStmt.executeUpdate();
             }

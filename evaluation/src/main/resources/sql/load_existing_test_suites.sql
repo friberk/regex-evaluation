@@ -13,7 +13,9 @@ SELECT
     subject,
     func,
     full_match,
-    partial_match
+    partial_match,
+    test_suite_string.first_sub_match_start,
+    test_suite_string.first_sub_match_end
 FROM test_suite
 INNER JOIN test_suite_string ON test_suite.id = test_suite_string.test_suite_id
 INNER JOIN regex_entity ON test_suite.regex_id = regex_entity.id
