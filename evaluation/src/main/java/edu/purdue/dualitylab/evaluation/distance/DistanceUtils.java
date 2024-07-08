@@ -11,7 +11,7 @@ final class DistanceUtils {
      * @param autoMeasure The automaton distance measure to use
      * @return A string distance measure that converts the args
      */
-    private static DistanceMeasure<String> createStringDistanceMeasure(DistanceMeasure<Automaton> autoMeasure) {
+    public static DistanceMeasure<String> createStringDistanceMeasure(DistanceMeasure<Automaton> autoMeasure) {
         return (left, right) -> {
             Automaton leftAuto = new RegExp(left).toAutomaton(true);
             Automaton rightAuto = new RegExp(right).toAutomaton(true);

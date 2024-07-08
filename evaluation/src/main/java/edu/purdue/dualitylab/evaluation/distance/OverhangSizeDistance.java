@@ -12,6 +12,7 @@ public final class OverhangSizeDistance implements DistanceMeasure<Automaton> {
         Automaton union = AutomatonUtils.shrinkAutomaton(left.union(right));
         Automaton overhang = AutomatonUtils.shrinkAutomaton(union.minus(intersection));
 
-        return AutomatonUtils.automatonSize(overhang) / AutomatonUtils.automatonSize(union);
+        double overhangSize = AutomatonUtils.automatonSize(overhang) / AutomatonUtils.automatonSize(union);
+        return 1 - overhangSize;
     }
 }
