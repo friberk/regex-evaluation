@@ -14,6 +14,10 @@ CREATE TABLE IF NOT EXISTS test_suite_result (
     -- if true, then this result is a "partial match" test suite result. NULL indicates that we couldn't assess if it
     -- matches or not because the test suite did not satisfy the filter
     partial_match_result BOOLEAN,
+    -- the distance between this candidate and the truth AST
+    ast_distance DOUBLE,
+    -- the distance between this candidate and the truth automaton
+    automaton_distance DOUBLE,
     -- this table's primary key is a composite. Every test suite/regex pair should be unique
     PRIMARY KEY (test_suite_id, regex_id),
     FOREIGN KEY (test_suite_id) REFERENCES test_suite(id),

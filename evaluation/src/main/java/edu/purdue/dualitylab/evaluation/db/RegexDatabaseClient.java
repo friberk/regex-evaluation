@@ -110,6 +110,8 @@ public final class RegexDatabaseClient implements AutoCloseable {
                 stmt.setLong(3, match.projectId());
                 storeIndeterminateBoolean(stmt, 4, match.fullMatch());
                 storeIndeterminateBoolean(stmt, 5, match.partialMatch());
+                storeDoubleOrNullOnNonFinite(stmt, 6, match.astDistance());
+                storeDoubleOrNullOnNonFinite(stmt, 7, match.autoDistance());
 
                 stmt.execute();
             }

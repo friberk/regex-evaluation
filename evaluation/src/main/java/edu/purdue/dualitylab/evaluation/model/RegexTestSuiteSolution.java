@@ -6,6 +6,8 @@ public record RegexTestSuiteSolution(
         long regexId,
         long projectId,
         IndeterminateBoolean fullMatch,
-        IndeterminateBoolean partialMatch
+        IndeterminateBoolean partialMatch,
+        double astDistance,
+        double autoDistance
 ) {
 }

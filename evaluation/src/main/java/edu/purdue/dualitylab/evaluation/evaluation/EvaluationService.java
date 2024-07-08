@@ -1,10 +1,12 @@
 package edu.purdue.dualitylab.evaluation.evaluation;
 
+import dk.brics.automaton.Automaton;
 import edu.purdue.dualitylab.evaluation.TestSuiteService;
 import edu.purdue.dualitylab.evaluation.db.RegexDatabaseClient;
+import edu.purdue.dualitylab.evaluation.distance.DistanceMeasure;
+import edu.purdue.dualitylab.evaluation.distance.IntersectionOverUnionDistance;
 import edu.purdue.dualitylab.evaluation.model.RegexTestSuite;
 import edu.purdue.dualitylab.evaluation.model.RegexTestSuiteSolution;
-import edu.purdue.dualitylab.evaluation.safematch.SafeMatcher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -20,10 +22,16 @@ public class EvaluationService {
 
     private final RegexDatabaseClient databaseClient;
     private final TestSuiteService testSuiteService;
+    private final DistanceMeasure<Automaton> distanceMeasure;
 
     public EvaluationService(RegexDatabaseClient databaseClient) {
+        this(databaseClient, new IntersectionOverUnionDistance());
+    }
+
+    public EvaluationService(RegexDatabaseClient databaseClient, DistanceMeasure<Automaton> distanceMeasure) {
         this.testSuiteService = new TestSuiteService(databaseClient);
         this.databaseClient = databaseClient;
+        this.distanceMeasure = distanceMeasure;
     }
 
     public void evaluateAndSaveTestSuites() throws SQLException {
@@ -53,7 +61,7 @@ public class EvaluationService {
                         .toList();
 
                 for (RegexTestSuite testSuite : testSuites) {
-                    jobExecutionContext.submit(new TestSuiteEvaluator(safeExecutionContext, testSuite, candidateEntities));
+                    jobExecutionContext.submit(new TestSuiteEvaluator(safeExecutionContext, testSuite, candidateEntities, this.distanceMeasure));
                 }
 
                 logger.info("Waiting on test suites...");

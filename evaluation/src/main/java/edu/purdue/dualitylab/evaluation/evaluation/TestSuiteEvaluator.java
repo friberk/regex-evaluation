@@ -1,5 +1,8 @@
 package edu.purdue.dualitylab.evaluation.evaluation;
 
+import dk.brics.automaton.Automaton;
+import dk.brics.automaton.RegExp;
+import edu.purdue.dualitylab.evaluation.distance.DistanceMeasure;
 import edu.purdue.dualitylab.evaluation.model.RegexTestSuite;
 import edu.purdue.dualitylab.evaluation.model.RegexTestSuiteSolution;
 import edu.purdue.dualitylab.evaluation.model.RegexTestSuiteString;
@@ -42,10 +45,22 @@ public class TestSuiteEvaluator implements Callable<Map<Long, Set<RegexTestSuite
      */
     private final Collection<CompiledRegexEntity> candidates;
 
-    public TestSuiteEvaluator(ExecutorService safeExecutionContext, RegexTestSuite testSuite, Collection<CompiledRegexEntity> candidates) {
+    /**
+     * Method of measuring the distance between two candidates
+     */
+    private final DistanceMeasure<Automaton> distanceMeasure;
+
+    /**
+     * Automaton of the ground truth regex
+     */
+    private final Automaton truthAutomaton;
+
+    public TestSuiteEvaluator(ExecutorService safeExecutionContext, RegexTestSuite testSuite, Collection<CompiledRegexEntity> candidates, DistanceMeasure<Automaton> candidateDistanceMeasure) {
         this.safeExecutionContext = safeExecutionContext;
         this.testSuite = testSuite;
         this.candidates = candidates;
+        this.distanceMeasure = candidateDistanceMeasure;
+        this.truthAutomaton = new RegExp(testSuite.pattern()).toAutomaton(true);
     }
 
     @Override
@@ -64,7 +79,23 @@ public class TestSuiteEvaluator implements Callable<Map<Long, Set<RegexTestSuite
                 })
                 // only interested in test suite results that are at least either a partial or full match
                 .filter(result -> result.fullMatch().coerceToBoolean() || result.partialMatch().coerceToBoolean())
-                .map(result -> new RegexTestSuiteSolution(result.entity().id(), result.entity().projectId(), result.fullMatch(), result.partialMatch()))
+                .map(result -> {
+
+                    // TODO AST edit distance goes here
+                    double astDistance = 0.0;
+
+                    // measure automaton distance
+                    Automaton rightAutomaton = new RegExp(result.entity().regexPattern().pattern()).toAutomaton(true);
+                    double automatonDistance = this.distanceMeasure.apply(truthAutomaton, rightAutomaton);
+
+                    return new RegexTestSuiteSolution(result.entity().id(),
+                            result.entity().projectId(),
+                            result.fullMatch(),
+                            result.partialMatch(),
+                            astDistance,
+                            automatonDistance
+                            );
+                })
                 .collect(Collectors.toSet());
 
         return Map.of(testSuite.id(), hits);
