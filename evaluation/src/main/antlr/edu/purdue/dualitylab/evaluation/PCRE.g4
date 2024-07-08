@@ -58,24 +58,24 @@ element
     ;
 
 atom
-    : option_setting
-    | backtracking_control
+    : optionSetting
+    | backtrackingControl
     | callout
     | capture
-    | atomic_group
+    | atomicGroup
     | lookaround
     | backreference
-    | subroutine_reference
-    | conditional_pattern
+    | subroutineReference
+    | conditionalPattern
     | comment
     | character
-    | character_type
-    | character_class
-    | posix_character_class
+    | characterType
+    | characterClass
+    | posixCharacterClass
     | letter
     | digit
     | anchor
-    | match_point_reset
+    | matchPointReset
     | quoting
     | other
     ;
@@ -87,13 +87,13 @@ capture
             '<' name '>' alternation
             | '\'' name '\'' alternation
             | 'P' '<' name '>' alternation
-            | ( option_setting_flag+ ( '-' option_setting_flag+)?)? ':' alternation
+            | ( optionSettingFlag+ ( '-' optionSettingFlag+)?)? ':' alternation
             | '|' alternation
         )
     ) ')'
     ;
 
-atomic_group
+atomicGroup
     : '(' '?' '>' alternation ')'
     ;
 
@@ -113,7 +113,7 @@ backreference
     | '(' '?' 'P' '=' name ')'
     ;
 
-subroutine_reference
+subroutineReference
     : '(' '?' ('R' | ( '+' | '-')? digits | '&' name | 'P' '>' name) ')'
     | '\\' 'g' (
         '<' name '>'
@@ -123,7 +123,7 @@ subroutine_reference
     )
     ;
 
-conditional_pattern
+conditionalPattern
     : '(' '?' (
         '(' (
             ( '+' | '-')? digits
@@ -135,7 +135,7 @@ conditional_pattern
         ) ')'
         | callout
         | lookaround
-    ) expr ('|' no_pattern = expr)? ')'
+    ) expr ('|' noPattern = expr)? ')'
     ;
 
 comment
@@ -147,24 +147,24 @@ quantifier
     | '{' from = digits ( ',' to = digits?)? '}' ( possessive = '+' | lazy = '?')?
     ;
 
-option_setting
+optionSetting
     : '(' (
         '*' (
             utf ( '8' | '1' '6' | '3' '2')?
             | ucp
-            | no_auto_possess
-            | no_start_opt
-            | newline_conventions
-            | limit_match '=' digits
-            | limit_recursion '=' digits
-            | bsr_anycrlf
-            | bsr_unicode
+            | noAutoPossess
+            | noStartOpt
+            | newlineConventions
+            | limitMatch '=' digits
+            | limitRecursion '=' digits
+            | bsrAnycrlf
+            | bsrUnicode
         )
-        | '?' (option_setting_flag+ ( '-' option_setting_flag+)? | '-' option_setting_flag+)
+        | '?' (optionSettingFlag+ ( '-' optionSettingFlag+)? | '-' optionSettingFlag+)
     ) ')'
     ;
 
-option_setting_flag
+optionSettingFlag
     : 'i'
     | 'J'
     | 'm'
@@ -173,7 +173,7 @@ option_setting_flag
     | 'x'
     ;
 
-backtracking_control
+backtrackingControl
     : '(' '*' (
         accept_
         | fail
@@ -189,7 +189,7 @@ callout
     : '(' '?' 'C' digits? ')'
     ;
 
-newline_conventions
+newlineConventions
     : cr
     | lf
     | crlf
@@ -214,7 +214,7 @@ character
     )
     ;
 
-character_type
+characterType
     : '.'
     | '\\' (
         'C'
@@ -237,31 +237,31 @@ character_type
     )
     ;
 
-character_class
-    : '[' negate = '^'? ']' character_class_atom* ']'
-    | '[' negate = '^'? character_class_atom+ ']'
+characterClass
+    : '[' negate = '^'? ']' characterClassAtom* ']'
+    | '[' negate = '^'? characterClassAtom+ ']'
     ;
 
-character_class_atom
-    : character_class_range
-    | posix_character_class
+characterClassAtom
+    : characterClassRange
+    | posixCharacterClass
     | character
-    | character_type
+    | characterType
     | '\\' .
     | ~( '\\' | ']')
     ;
 
-character_class_range
-    : character_class_range_atom '-' character_class_range_atom
+characterClassRange
+    : characterClassRangeAtom '-' characterClassRangeAtom
     ;
 
-character_class_range_atom
+characterClassRangeAtom
     : character
     | '\\' .
     | ~(']' | '\\')
     ;
 
-posix_character_class
+posixCharacterClass
     : '[:' negate = '^'? letters ':]'
     ;
 
@@ -271,7 +271,7 @@ anchor
     | '$'
     ;
 
-match_point_reset
+matchPointReset
     : '\\' 'K'
     ;
 
@@ -402,11 +402,11 @@ ucp
     : 'U' 'C' 'P'
     ;
 
-no_auto_possess
+noAutoPossess
     : 'N' 'O' '_' 'A' 'U' 'T' 'O' '_' 'P' 'O' 'S' 'S' 'E' 'S' 'S'
     ;
 
-no_start_opt
+noStartOpt
     : 'N' 'O' '_' 'S' 'T' 'A' 'R' 'T' '_' 'O' 'P' 'T'
     ;
 
@@ -430,19 +430,19 @@ any
     : 'A' 'N' 'Y'
     ;
 
-limit_match
+limitMatch
     : 'L' 'I' 'M' 'I' 'T' '_' 'M' 'A' 'T' 'C' 'H'
     ;
 
-limit_recursion
+limitRecursion
     : 'L' 'I' 'M' 'I' 'T' '_' 'R' 'E' 'C' 'U' 'R' 'S' 'I' 'O' 'N'
     ;
 
-bsr_anycrlf
+bsrAnycrlf
     : 'B' 'S' 'R' '_' 'A' 'N' 'Y' 'C' 'R' 'L' 'F'
     ;
 
-bsr_unicode
+bsrUnicode
     : 'B' 'S' 'R' '_' 'U' 'N' 'I' 'C' 'O' 'D' 'E'
     ;
 
