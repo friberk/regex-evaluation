@@ -1,4 +1,4 @@
-package edu.purdue.dualitylab.evaluation;
+package edu.purdue.dualitylab.evaluation.distance.ast;
 
 import java.util.ArrayList;
 

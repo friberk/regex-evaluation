@@ -1,10 +1,6 @@
 package edu.purdue.dualitylab.evaluation;
 
-import edu.purdue.dualitylab.evaluation.PCRELexer;
-import edu.purdue.dualitylab.evaluation.PCREParser;
-import edu.purdue.dualitylab.evaluation.Node;
-import edu.purdue.dualitylab.evaluation.Tree;
-
+import edu.purdue.dualitylab.evaluation.distance.ast.Tree;
 import org.antlr.v4.runtime.*;
 import org.antlr.v4.runtime.tree.ParseTree;
 import org.antlr.v4.runtime.ParserRuleContext;
@@ -14,21 +10,25 @@ import java.util.*;
 
 public class Distance {
 
-    public static int editDistance(String s1, String s2) throws IOException {
+    public static int editDistance(String regex1, String regex2) throws IOException {
+        String regexString1 = buildTree(regex1);
+        String regexString2 = buildTree(regex2);
 
-        // creating tree string with proper syntax
-        String treeString1 = buildTree(s1);
-        String treeString2 = buildTree(s2);
+        Tree regexTree1 = new Tree(regexString1);
+        Tree regexTree2 = new Tree(regexString2);
 
-        // creating trees from tree string
-        Tree tree1 = new Tree(treeString1);
-        Tree tree2 = new Tree(treeString2);
-
-        // calculating and returning edit distance
-        return Tree.ZhangShasha(tree1, tree2);
+        return Tree.ZhangShasha(regexTree1, regexTree2);
     }
 
-    public static String changeSymbol(String s) throws IOException {
+    public static int editDistance(Tree truthTree, String candidatePattern) throws IOException {
+        String candidateString = buildTree(candidatePattern);
+        Tree candidateTree = new Tree(candidateString);
+        return Tree.ZhangShasha(candidateTree, truthTree);
+    }
+
+    private static Map<Character, String> symbolMap = null;
+
+    private static Map<Character, String> buildSymbolMap() {
         Map<Character, String> symbolMap = new HashMap<>();
         symbolMap.put('*', "asterisk");
         symbolMap.put('+', "plus");
@@ -72,7 +72,10 @@ public class Distance {
         symbolMap.put('7', "seven");
         symbolMap.put('8', "eight");
         symbolMap.put('9', "nine");
+        return symbolMap;
+    }
 
+    private static String changeSymbol(String s) {
         StringBuilder result = new StringBuilder();
 
         for (char c : s.toCharArray()) {
@@ -86,7 +89,7 @@ public class Distance {
         return result.toString();
     }
 
-    public static String getLabel(ParseTree node, PCREParser parser) throws IOException {
+    private static String getLabel(ParseTree node, PCREParser parser) {
         // if node is a rule
         if (node instanceof ParserRuleContext) {
             int ruleIndex = ((ParserRuleContext) node).getRuleIndex();
@@ -97,7 +100,7 @@ public class Distance {
         }
     }
 
-    public static void traverse(ParseTree node, StringBuilder sb, PCREParser parser) throws IOException {
+    private static void traverse(ParseTree node, StringBuilder sb, PCREParser parser) {
         if (node == null) {
             return;
         }
@@ -117,7 +120,7 @@ public class Distance {
         }
     }
 
-    public static String buildTree(String s) throws IOException {
+    private static String buildTree(String s) {
 
         // removing leading and trailing whitespace
         s = s.trim();
@@ -130,17 +133,12 @@ public class Distance {
 
         // traversing the tree to format string correctly
         StringBuilder sb = new StringBuilder();
+        if (symbolMap == null) {
+            symbolMap = buildSymbolMap();
+        }
         traverse(tree, sb, parser);
 
         return sb.toString().trim();
-    }
-
-    public static void main(String[] args) throws IOException {
-        String s1 = "[a-z][A-Z][0-9]";
-        String treeString1 = buildTree(s1);
-        System.out.println(treeString1);
-        Tree tree1 = new Tree(treeString1);
-        System.out.println(Tree.ZhangShasha(tree1, tree1));
     }
 }
 

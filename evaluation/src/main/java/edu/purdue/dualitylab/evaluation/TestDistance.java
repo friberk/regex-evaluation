@@ -7,14 +7,14 @@ import static edu.purdue.dualitylab.evaluation.Distance.editDistance;
 public class TestDistance {
 
     public static void main(String[] args) throws IOException {
-//        System.out.println("Testing identical regexes:");
-//        identicalRegex();
-//
-//        System.out.println("Testing similar regexes:");
-//        similarRegex();
+        System.out.println("Testing identical regexes:");
+        identicalRegex();
 
-//        System.out.println("Testing different regexes:");
-//        differentRegex();
+        System.out.println("Testing similar regexes:");
+        similarRegex();
+
+        System.out.println("Testing different regexes:");
+        differentRegex();
 
         System.out.println("Testing Charlie's examples:");
         charlieExamples();
@@ -68,7 +68,7 @@ public class TestDistance {
         String regex2 = "a+";
         testOutput(1, regex1, regex2, editDistance(regex1, regex2));
 
-        String regex3 = "[a-z][A-Z][0-9]";
+        String regex3 = "[a-zA-Z0-9]";
         String regex4 = "abc*";
         testOutput(2, regex3, regex4, editDistance(regex3, regex4));
     }
