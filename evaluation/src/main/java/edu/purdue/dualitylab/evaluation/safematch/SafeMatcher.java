@@ -91,7 +91,13 @@ public class SafeMatcher {
         return () -> {
             InterruptibleCharSequence interruptibleCharSequence = new InterruptibleCharSequence(charSequence);
             Matcher matcher = pattern.matcher(interruptibleCharSequence);
-            boolean matches = matcher.find();
+            boolean matches;
+            try {
+                matches = matcher.find();
+            } catch (StackOverflowError stackOverflowError) {
+                return new PartialMatchResult(MatchResult.NOT_MATCH, -1, -1);
+            }
+
             if (!matches) {
                 return new PartialMatchResult(MatchResult.NOT_MATCH, -1, -1);
             }
