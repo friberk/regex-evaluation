@@ -55,6 +55,8 @@ public class EntityMapper {
             return row.getDouble(columName);
         } else if (paramType.equals(Boolean.class)) {
             return row.getBoolean(columName);
+        } else if (paramType.equals(Integer.class)) {
+            return row.getInt(columName);
         } else {
             throw new IllegalArgumentException("Invalid parameter type: " + paramType);
         }
