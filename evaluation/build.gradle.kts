@@ -9,7 +9,7 @@ plugins {
 }
 
 group = "edu.purdue.dualitylab"
-version = "0.2.4"
+version = "0.2.5"
 
 repositories {
     mavenCentral()
@@ -18,6 +18,7 @@ repositories {
 dependencies {
     testImplementation(platform("org.junit:junit-bom:5.10.0"))
     testImplementation("org.junit.jupiter:junit-jupiter")
+    testImplementation("org.assertj:assertj-core:3.25.1")
 
     // brics for coverage
     implementation(project(":dk.brics.automaton"))
