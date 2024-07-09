@@ -6,3 +6,6 @@ build
 
 # Ignore editor files
 .idea/
+
+# Ignore ANTLR build files
+.antlr/
