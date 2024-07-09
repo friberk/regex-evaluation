@@ -7,7 +7,7 @@ public record RegexTestSuiteSolution(
         long projectId,
         IndeterminateBoolean fullMatch,
         IndeterminateBoolean partialMatch,
-        double astDistance,
+        int astDistance,
         double autoDistance
 ) {
 }

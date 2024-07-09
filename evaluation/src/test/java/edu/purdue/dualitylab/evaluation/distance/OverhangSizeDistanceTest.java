@@ -1,6 +1,5 @@
 package edu.purdue.dualitylab.evaluation.distance;
 
-import dk.brics.automaton.Automaton;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;

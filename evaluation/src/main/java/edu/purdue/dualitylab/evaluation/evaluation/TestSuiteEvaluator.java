@@ -2,7 +2,9 @@ package edu.purdue.dualitylab.evaluation.evaluation;
 
 import dk.brics.automaton.Automaton;
 import dk.brics.automaton.RegExp;
+import edu.purdue.dualitylab.evaluation.distance.AstDistance;
 import edu.purdue.dualitylab.evaluation.distance.DistanceMeasure;
+import edu.purdue.dualitylab.evaluation.distance.ast.Tree;
 import edu.purdue.dualitylab.evaluation.model.RegexTestSuite;
 import edu.purdue.dualitylab.evaluation.model.RegexTestSuiteSolution;
 import edu.purdue.dualitylab.evaluation.model.RegexTestSuiteString;
@@ -11,6 +13,7 @@ import edu.purdue.dualitylab.evaluation.util.IndeterminateBoolean;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.Callable;
@@ -65,6 +68,10 @@ public class TestSuiteEvaluator implements Callable<Map<Long, Set<RegexTestSuite
 
     @Override
     public Map<Long, Set<RegexTestSuiteSolution>> call() throws Exception {
+
+        // truth tree
+        Tree truthRegexTree = AstDistance.buildTree(this.testSuite.pattern());
+
         Set<RegexTestSuiteSolution> hits = this.candidates.stream()
                 .map(compiledRegexEntity -> {
                     IndeterminateBoolean fullMatchSatisfies = testSuite.hasPositiveAndNegativeStrings(SafeMatcher.MatchMode.FULL, 1)
@@ -81,8 +88,13 @@ public class TestSuiteEvaluator implements Callable<Map<Long, Set<RegexTestSuite
                 .filter(result -> result.fullMatch().coerceToBoolean() || result.partialMatch().coerceToBoolean())
                 .map(result -> {
 
-                    // TODO AST edit distance goes here
-                    double astDistance = 0.0;
+                    // measure edit distance
+                    int astDistance;
+                    try {
+                         astDistance = AstDistance.editDistance(truthRegexTree, result.entity().regexPattern().pattern());
+                    } catch (IOException exe) {
+                        astDistance = -1;
+                    }
 
                     // measure automaton distance
                     Automaton rightAutomaton = new RegExp(result.entity().regexPattern().pattern()).toAutomaton(true);

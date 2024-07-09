@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS test_suite_result (
     -- matches or not because the test suite did not satisfy the filter
     partial_match_result BOOLEAN,
     -- the distance between this candidate and the truth AST
-    ast_distance DOUBLE,
+    ast_distance INTEGER,
     -- the distance between this candidate and the truth automaton
     automaton_distance DOUBLE,
     -- this table's primary key is a composite. Every test suite/regex pair should be unique
