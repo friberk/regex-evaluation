@@ -1,5 +1,7 @@
-package edu.purdue.dualitylab.evaluation;
+package edu.purdue.dualitylab.evaluation.distance;
 
+import edu.purdue.dualitylab.evaluation.PCRELexer;
+import edu.purdue.dualitylab.evaluation.PCREParser;
 import edu.purdue.dualitylab.evaluation.distance.ast.Tree;
 import org.antlr.v4.runtime.*;
 import org.antlr.v4.runtime.tree.ParseTree;
@@ -8,21 +10,20 @@ import org.antlr.v4.runtime.ParserRuleContext;
 import java.io.IOException;
 import java.util.*;
 
-public class Distance {
+public class AstDistance {
+
+    public static Tree buildTree(String regex) throws IOException {
+        String treeString = buildTreeStr(regex);
+        return new Tree(treeString);
+    }
 
     public static int editDistance(String regex1, String regex2) throws IOException {
-        String regexString1 = buildTree(regex1);
-        String regexString2 = buildTree(regex2);
-
-        Tree regexTree1 = new Tree(regexString1);
-        Tree regexTree2 = new Tree(regexString2);
-
-        return Tree.ZhangShasha(regexTree1, regexTree2);
+        Tree regexTree1 = buildTree(regex1);
+        return editDistance(regexTree1, regex2);
     }
 
     public static int editDistance(Tree truthTree, String candidatePattern) throws IOException {
-        String candidateString = buildTree(candidatePattern);
-        Tree candidateTree = new Tree(candidateString);
+        Tree candidateTree = buildTree(candidatePattern);
         return Tree.ZhangShasha(candidateTree, truthTree);
     }
 
@@ -120,7 +121,7 @@ public class Distance {
         }
     }
 
-    private static String buildTree(String s) {
+    private static String buildTreeStr(String s) {
 
         // removing leading and trailing whitespace
         s = s.trim();

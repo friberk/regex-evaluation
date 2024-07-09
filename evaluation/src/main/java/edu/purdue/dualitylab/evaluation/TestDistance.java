@@ -2,7 +2,7 @@ package edu.purdue.dualitylab.evaluation;
 
 import java.io.IOException;
 
-import static edu.purdue.dualitylab.evaluation.Distance.editDistance;
+import static edu.purdue.dualitylab.evaluation.distance.AstDistance.editDistance;
 
 public class TestDistance {
 
