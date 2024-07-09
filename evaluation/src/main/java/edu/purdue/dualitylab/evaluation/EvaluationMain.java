@@ -4,8 +4,10 @@ import com.beust.jcommander.JCommander;
 import edu.purdue.dualitylab.evaluation.args.EvaluateArgs;
 import edu.purdue.dualitylab.evaluation.args.PullTestSuiteArgs;
 import edu.purdue.dualitylab.evaluation.args.RootArgs;
+import edu.purdue.dualitylab.evaluation.args.UpdateDistancesArgs;
 import edu.purdue.dualitylab.evaluation.commands.EvaluateCommand;
 import edu.purdue.dualitylab.evaluation.commands.PullTestSuitesCommand;
+import edu.purdue.dualitylab.evaluation.commands.UpdateDistancesCommand;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.sqlite.SQLiteConfig;
@@ -18,10 +20,12 @@ public class EvaluationMain {
         RootArgs rootArgs = new RootArgs();
         PullTestSuiteArgs pullTestSuiteArgs = new PullTestSuiteArgs();
         EvaluateArgs evaluateArgs = new EvaluateArgs();
+        UpdateDistancesArgs updateDistancesArgs = new UpdateDistancesArgs();
         JCommander jc = JCommander.newBuilder()
                 .addObject(rootArgs)
                 .addCommand("pull-test-suites", pullTestSuiteArgs)
                 .addCommand("evaluate", evaluateArgs)
+                .addCommand("update-distances", updateDistancesArgs)
                 .build();
 
         jc.parse(args);
@@ -42,6 +46,11 @@ public class EvaluationMain {
             case "evaluate":
                 EvaluateCommand evaluateCmd = new EvaluateCommand(rootArgs, evaluateArgs, dbConfig);
                 evaluateCmd.call();
+                break;
+
+            case "update-distances":
+                UpdateDistancesCommand updateDistancesCommand = new UpdateDistancesCommand(rootArgs, updateDistancesArgs, dbConfig);
+                updateDistancesCommand.call();
                 break;
 
             default:

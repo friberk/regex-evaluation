@@ -7,10 +7,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.*;
 import java.sql.*;
-import java.util.Collection;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
@@ -95,6 +92,35 @@ public final class RegexDatabaseClient implements AutoCloseable {
 
     public void setupResultsTable() throws SQLException {
         executedBatchNamedQuery("create_test_suite_result_table.sql");
+    }
+
+    public void addDistanceColumnsToResults() throws SQLException {
+        executedBatchNamedQuery("alter_results_similarity_columns.sql");
+    }
+
+    public Stream<RawTestSuiteResultRow> loadRawTestSuiteResultsForDistanceUpdate() throws SQLException {
+        String queryText = loadNamedQuery("load_test_suite_results.sql").orElseThrow();
+        return streamQuery(queryText, RawTestSuiteResultRow.class);
+    }
+
+    public void updateManyTestSuiteResultsDistances(Collection<DistanceUpdateRecord> distanceUpdateRecords) throws SQLException {
+        String queryText = loadNamedQuery("update_result_distances.sql").orElseThrow();
+        boolean oldAutoCommitStatus = connection.getAutoCommit();
+        connection.setAutoCommit(false);
+        PreparedStatement stmt = connection.prepareStatement(queryText);
+        for (DistanceUpdateRecord record : distanceUpdateRecords) {
+            stmt.setInt(1, record.astDistance());
+            storeDoubleOrNullOnNonFinite(stmt, 2, record.automatonDistance());
+            stmt.setLong(3, record.testSuiteId());
+            stmt.setLong(4, record.regexId());
+
+            stmt.execute();
+        }
+
+        connection.commit();
+        connection.setAutoCommit(oldAutoCommitStatus);
+
+        stmt.close();
     }
 
     public void insertManyTestSuiteResults(Map<Long, Set<RegexTestSuiteSolution>> testSuitesAndResults) throws SQLException {

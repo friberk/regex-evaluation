@@ -39,7 +39,7 @@ public class PullTestSuitesCommand extends AbstractCommand<PullTestSuiteArgs, Vo
         // connect to first argument
         // String dbPath = "jdbc:sqlite:/home/charlie/backup/research/5-30-regexes/regexes-combined-10k.sqlite";
         String dbPath = String.format("jdbc:sqlite:%s", args.getDatabaseFile());
-        logger.info("connecting to database at ");
+        logger.info("connecting to database at {}", dbPath);
         Connection connection = DriverManager.getConnection(dbPath, this.sqliteConfig.toProperties());
         RegexDatabaseClient regexDatabaseClient = new RegexDatabaseClient(connection);
         logger.info("Successfully connected to database");

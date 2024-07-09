@@ -24,7 +24,11 @@ public class AstDistance {
 
     public static int editDistance(Tree truthTree, String candidatePattern) throws IOException {
         Tree candidateTree = buildTree(candidatePattern);
-        return Tree.ZhangShasha(candidateTree, truthTree);
+        return editDistance(truthTree, candidateTree);
+    }
+
+    public static int editDistance(Tree truthTree, Tree candidateTree) {
+        return Tree.ZhangShasha(truthTree, candidateTree);
     }
 
     private static Map<Character, String> symbolMap = null;
