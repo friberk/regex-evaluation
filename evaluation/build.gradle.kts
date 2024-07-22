@@ -9,7 +9,7 @@ plugins {
 }
 
 group = "edu.purdue.dualitylab"
-version = "0.2.7"
+version = "0.2.8"
 
 repositories {
     mavenCentral()
@@ -57,4 +57,8 @@ docker {
         user.set("charlie")
         images.set(setOf("softwaresale/regex-evaluator:$version"))
     }
+}
+
+tasks.generateGrammarSource {
+    arguments = arguments + listOf("-visitor", "-long-messages")
 }

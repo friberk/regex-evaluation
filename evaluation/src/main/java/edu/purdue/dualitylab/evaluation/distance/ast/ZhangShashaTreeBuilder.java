@@ -1,45 +1,18 @@
-package edu.purdue.dualitylab.evaluation.distance;
+package edu.purdue.dualitylab.evaluation.distance.ast;
 
-import edu.purdue.dualitylab.evaluation.PCRELexer;
+import edu.purdue.dualitylab.evaluation.PCREBaseVisitor;
 import edu.purdue.dualitylab.evaluation.PCREParser;
-import edu.purdue.dualitylab.evaluation.distance.ast.Node;
-import edu.purdue.dualitylab.evaluation.distance.ast.Tree;
-import edu.purdue.dualitylab.evaluation.distance.ast.ZhangShashaTreeBuilder;
-import org.antlr.v4.runtime.*;
-import org.antlr.v4.runtime.tree.ParseTree;
 import org.antlr.v4.runtime.ParserRuleContext;
+import org.antlr.v4.runtime.tree.ParseTree;
 
-import java.io.IOException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
-public class AstDistance {
+public class ZhangShashaTreeBuilder extends PCREBaseVisitor<Node> {
 
-    public static Tree buildTree(String regex) throws IOException {
-        regex = regex.trim();
-        PCRELexer lexer = new PCRELexer(CharStreams.fromString(regex));
-        TokenStream tokens = new CommonTokenStream(lexer);
-        PCREParser parser = new PCREParser(tokens);
-        ParseTree tree = parser.pcre();
-        ZhangShashaTreeBuilder builder = new ZhangShashaTreeBuilder(parser);
-        Node rootNode = builder.visit(tree);
-        return new Tree(rootNode);
-    }
-
-    public static int editDistance(String regex1, String regex2) throws IOException {
-        Tree regexTree1 = buildTree(regex1);
-        return editDistance(regexTree1, regex2);
-    }
-
-    public static int editDistance(Tree truthTree, String candidatePattern) throws IOException {
-        Tree candidateTree = buildTree(candidatePattern);
-        return editDistance(truthTree, candidateTree);
-    }
-
-    public static int editDistance(Tree truthTree, Tree candidateTree) {
-        return Tree.ZhangShasha(truthTree, candidateTree);
-    }
-
-    private static Map<Character, String> symbolMap = null;
+    private static Map<Character, String> SYMBOL_MAP = null;
 
     private static Map<Character, String> buildSymbolMap() {
         Map<Character, String> symbolMap = new HashMap<>();
@@ -88,12 +61,16 @@ public class AstDistance {
         return symbolMap;
     }
 
+    static {
+        SYMBOL_MAP = buildSymbolMap();
+    }
+
     private static String changeSymbol(String s) {
         StringBuilder result = new StringBuilder();
 
         for (char c : s.toCharArray()) {
-            if (symbolMap.containsKey(c)) {
-                result.append(symbolMap.get(c));
+            if (SYMBOL_MAP.containsKey(c)) {
+                result.append(SYMBOL_MAP.get(c));
             } else {
                 result.append(c);
             }
@@ -102,35 +79,36 @@ public class AstDistance {
         return result.toString();
     }
 
-    private static String getLabel(ParseTree node, PCREParser parser) {
+    private final PCREParser parser;
+
+    public ZhangShashaTreeBuilder(PCREParser parser) {
+        this.parser = parser;
+    }
+
+    @Override
+    public Node visit(ParseTree tree) {
+        String label = getLabel(tree);
+        List<Node> children = new ArrayList<>();
+        for (int i = 0; i < tree.getChildCount(); i++) {
+            ParseTree child = tree.getChild(i);
+            Node childNode = visit(child);
+            children.add(childNode);
+        }
+
+        Node node = new Node(label);
+        node.children.addAll(children);
+
+        return node;
+    }
+
+    private String getLabel(ParseTree node) {
         // if node is a rule
         if (node instanceof ParserRuleContext) {
             int ruleIndex = ((ParserRuleContext) node).getRuleIndex();
             return parser.getRuleNames()[ruleIndex];
-        // if node is a character or atom
+            // if node is a character or atom
         } else {
             return changeSymbol(node.getText());
         }
     }
-
-    private static void traverse(ParseTree node, StringBuilder sb, PCREParser parser) {
-        if (node == null) {
-            return;
-        }
-
-        // adding the correct label to the string
-        sb.append(getLabel(node, parser));
-
-        if (node.getChildCount() > 0) {
-            sb.append("(");
-            for (int i = 0; i < node.getChildCount(); i++) {
-                traverse(node.getChild(i), sb, parser);
-                if (i < node.getChildCount() - 1) {
-                    sb.append(" ");
-                }
-            }
-            sb.append(")");
-        }
-    }
 }
-

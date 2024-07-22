@@ -6,16 +6,26 @@ import java.io.StringReader;
 import java.util.ArrayList;
 
 public class Tree {
-    Node root = new Node();
+    private Node root;
     // function l() which gives the leftmost child
-    ArrayList<Integer> l = new ArrayList<Integer>();
+    private ArrayList<Integer> leftmostChildren;
     // list of keyroots, i.e., nodes with a left child and the tree root
-    ArrayList<Integer> keyroots = new ArrayList<Integer>();
+    private final ArrayList<Integer> keyroots;
     // list of the labels of the nodes used for node comparison
-    ArrayList<String> labels = new ArrayList<String>();
+    private final ArrayList<String> labels;
+    private boolean hasBeenPrepared;
 
     // the following constructor handles preorder notation. E.g., f(a b(c))
+    public Tree(Node root) {
+        this.root = root;
+        this.leftmostChildren = new ArrayList<>();
+        this.keyroots = new ArrayList<>();
+        this.labels = new ArrayList<>();
+        this.hasBeenPrepared = false;
+    }
+
     public Tree(String s) throws IOException {
+        this(new Node());
         StreamTokenizer tokenizer = new StreamTokenizer(new StringReader(s));
         tokenizer.nextToken();
         root = parseString(root, tokenizer);
@@ -65,10 +75,23 @@ public class Tree {
         return index;
     }
 
+    public void prepareForDistance() {
+        if (hasBeenPrepared) {
+            return;
+        }
+
+        this.index();
+        this.l();
+        this.keyroots();
+        this.traverse();
+
+        hasBeenPrepared = true;
+    }
+
     public void l() {
         // put together a function which gives l()
         leftmost();
-        l = l(root, new ArrayList<Integer>());
+        leftmostChildren = l(root, new ArrayList<Integer>());
     }
 
     private ArrayList<Integer> l(Node node, ArrayList<Integer> l) {
@@ -89,7 +112,7 @@ public class Tree {
         for (int i = 0; i < node.children.size(); i++) {
             leftmost(node.children.get(i));
         }
-        if (node.children.size() == 0) {
+        if (node.children.isEmpty()) {
             node.leftmost = node;
         } else {
             node.leftmost = node.children.get(0).leftmost;
@@ -98,10 +121,10 @@ public class Tree {
 
     public void keyroots() {
         // calculate the keyroots
-        for (int i = 0; i < l.size(); i++) {
+        for (int i = 0; i < leftmostChildren.size(); i++) {
             int flag = 0;
-            for (int j = i + 1; j < l.size(); j++) {
-                if (l.get(j) == l.get(i)) {
+            for (int j = i + 1; j < leftmostChildren.size(); j++) {
+                if (leftmostChildren.get(j) == leftmostChildren.get(i)) {
                     flag = 1;
                 }
             }
@@ -114,18 +137,12 @@ public class Tree {
     static int[][] TD;
 
     public static int ZhangShasha(Tree tree1, Tree tree2) {
-        tree1.index();
-        tree1.l();
-        tree1.keyroots();
-        tree1.traverse();
-        tree2.index();
-        tree2.l();
-        tree2.keyroots();
-        tree2.traverse();
+        tree1.prepareForDistance();
+        tree2.prepareForDistance();
 
-        ArrayList<Integer> l1 = tree1.l;
+        ArrayList<Integer> l1 = tree1.leftmostChildren;
         ArrayList<Integer> keyroots1 = tree1.keyroots;
-        ArrayList<Integer> l2 = tree2.l;
+        ArrayList<Integer> l2 = tree2.leftmostChildren;
         ArrayList<Integer> keyroots2 = tree2.keyroots;
 
         // space complexity of the algorithm
