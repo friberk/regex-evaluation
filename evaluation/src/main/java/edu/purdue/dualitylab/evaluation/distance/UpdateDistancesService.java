@@ -16,6 +16,7 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.stream.Collectors;
 
 public class UpdateDistancesService {
@@ -25,18 +26,34 @@ public class UpdateDistancesService {
     private record DistanceInput(
             RawTestSuiteResultRow rawRow,
             Tree truthTree,
-            Tree reuseTree
+            Tree reuseTree,
+            Integer cachedScore
     ) {
+        public DistanceInput(RawTestSuiteResultRow rawRow,
+                             Tree truthTree,
+                             Tree reuseTree) {
+            this(rawRow, truthTree, reuseTree, -1);
+        }
+
+        public static DistanceInput useCachedScore(RawTestSuiteResultRow row, int score) {
+            return new DistanceInput(row, null, null, score);
+        }
     }
 
     private final RegexDatabaseClient databaseClient;
     private final DistanceMeasure<Automaton> automatonDistanceMeasure;
-    private final BoundedCache<String, Optional<Tree>> treeCache;
+    // have two difference caches because the truth regex cache can be much smaller because we should process a whole
+    // chunk of the truth regex at the same time
+    private final BoundedCache<String, Optional<Tree>> truthRegexTreeCache;
+    private final BoundedCache<String, Optional<Tree>> candidateRegexTreeCache;
+    private final BoundedCache<Pair<Long, Long>, Integer> cachedEditDistances;
 
     public UpdateDistancesService(RegexDatabaseClient regexDatabaseClient, DistanceMeasure<Automaton> automatonDistanceMeasure) {
         this.databaseClient = regexDatabaseClient;
         this.automatonDistanceMeasure = automatonDistanceMeasure;
-        this.treeCache = new BoundedCache<>(100);
+        this.candidateRegexTreeCache = new BoundedCache<>(300);
+        this.truthRegexTreeCache = new BoundedCache<>(10);
+        this.cachedEditDistances = new BoundedCache<>(100);
     }
 
     public void computeAndInsertDistanceUpdateRecordsV2() throws SQLException {
@@ -51,11 +68,22 @@ public class UpdateDistancesService {
 
         List<DistanceUpdateRecord> records = databaseClient.loadRawTestSuiteResultsForDistanceUpdate()
                 .flatMap(row -> {
-                    Optional<Tree> truthRegexTree = treeCache.get(row.truthRegex());
+                    // if we have computed this score already, use the cached version
+                    OptionalInt cachedScore = hasCachedScore(row);
+                    if (cachedScore.isPresent()) {
+                        return Optional.<DistanceInput>of(DistanceInput.useCachedScore(row, cachedScore.getAsInt())).stream();
+                    }
+
+                    Optional<Tree> truthRegexTree = truthRegexTreeCache.get(row.truthRegex());
                     if (truthRegexTree == null) {
+                        logger.info("regex /{}/ was not cached, building tree...", row.truthRegex());
                         // the item has not been cached, so we need to build and store it
                         truthRegexTree = buildTree(row.truthRegex());
-                        treeCache.put(row.truthRegex(), truthRegexTree);
+                        truthRegexTreeCache.put(row.truthRegex(), truthRegexTree);
+                        candidateRegexTreeCache.put(row.truthRegex(), truthRegexTree);
+                        logger.info("successfully built and cached tree");
+                    } else {
+                        logger.info("regex /{}/ was already cached", row.truthRegex());
                     }
 
                     // now that it has been built, we can interpret
@@ -65,10 +93,14 @@ public class UpdateDistancesService {
                         return Optional.<DistanceInput>empty().stream();
                     }
 
-                    Optional<Tree> candidateRegexTree = treeCache.get(row.candidateRegex());
+                    Optional<Tree> candidateRegexTree = candidateRegexTreeCache.get(row.candidateRegex());
                     if (candidateRegexTree == null) {
+                        logger.info("regex /{}/ was not cached, building tree...", row.candidateRegex());
                         candidateRegexTree = buildTree(row.candidateRegex());
-                        treeCache.put(row.candidateRegex(), candidateRegexTree);
+                        candidateRegexTreeCache.put(row.candidateRegex(), candidateRegexTree);
+                        logger.info("successfully built and cached tree");
+                    } else {
+                        logger.info("regex /{}/ was already cached", row.candidateRegex());
                     }
 
                     if (candidateRegexTree.isEmpty()) {
@@ -76,11 +108,22 @@ public class UpdateDistancesService {
                         return Optional.<DistanceInput>empty().stream();
                     }
 
+                    logger.info("Trees built successfully for regexes {} and {}", row.truthRegexId(), row.candidateRegexId());
+
                     return Optional.of(new DistanceInput(row, truthRegexTree.get(), candidateRegexTree.get())).stream();
                 })
                 .map(input -> {
-                    logger.info("computing distance between /{}/ and /{}/", input.rawRow().truthRegex(), input.rawRow().candidateRegex());
-                    int astEditDistance = AstDistance.editDistance(input.truthTree(), input.reuseTree());
+                    int astEditDistance;
+                    if (input.cachedScore() >= 0) {
+                        // we used the cached score
+                        logger.info("already computed this score, using cached value {}", input.cachedScore());
+                        astEditDistance = input.cachedScore();
+                    } else {
+                        logger.info("computing distance between /{}/ and /{}/", input.rawRow().truthRegex(), input.rawRow().candidateRegex());
+                        astEditDistance = AstDistance.editDistance(input.truthTree(), input.reuseTree());
+                        cachedEditDistances.put(Pair.of(input.rawRow().truthRegexId(), input.rawRow().candidateRegexId()), astEditDistance);
+                        logger.info("successfully computed edit distance");
+                    }
 
                     // TODO here we would also load up automaton stuff
 
@@ -135,9 +178,19 @@ public class UpdateDistancesService {
         }
     }
 
+    private OptionalInt hasCachedScore(RawTestSuiteResultRow row) {
+        Pair<Long, Long> idPair = Pair.of(row.truthRegexId(), row.candidateRegexId());
+        if (cachedEditDistances.containsKey(idPair)) {
+            return OptionalInt.of(this.cachedEditDistances.get(idPair));
+        } else {
+            return OptionalInt.empty();
+        }
+    }
+
     private static Optional<Tree> buildTree(String pattern) {
         try {
             Tree truthRegexTree = AstDistance.buildTree(pattern);
+            truthRegexTree.prepareForDistance();
             return Optional.of(truthRegexTree);
         } catch (IOException | OutOfMemoryError ignored) {
             // if we encounter one of these errors, then we should just skip edit distance
