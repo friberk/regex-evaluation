@@ -34,7 +34,7 @@ public class UpdateDistancesCommand extends AbstractCommand<UpdateDistancesArgs,
         UpdateDistancesService updateDistancesService = new UpdateDistancesService(regexDatabaseClient, new OverhangSizeDistance());
 
         logger.info("beginning to update distances...");
-        updateDistancesService.computeAndInsertDistanceUpdateRecords();
+        updateDistancesService.computeAndInsertDistanceUpdateRecordsV2();
         logger.info("finished to update distances");
 
         return null;

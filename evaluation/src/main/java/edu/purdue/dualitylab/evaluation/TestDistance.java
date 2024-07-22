@@ -6,7 +6,7 @@ import static edu.purdue.dualitylab.evaluation.distance.AstDistance.editDistance
 
 public class TestDistance {
 
-    public static void main(String[] args) throws IOException {
+    public static void notMain(String[] args) throws IOException {
         System.out.println("Testing identical regexes:");
         identicalRegex();
 

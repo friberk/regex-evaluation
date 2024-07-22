@@ -6,6 +6,7 @@ import edu.purdue.dualitylab.evaluation.db.RegexDatabaseClient;
 import edu.purdue.dualitylab.evaluation.distance.ast.Tree;
 import edu.purdue.dualitylab.evaluation.model.DistanceUpdateRecord;
 import edu.purdue.dualitylab.evaluation.model.RawTestSuiteResultRow;
+import edu.purdue.dualitylab.evaluation.util.BoundedCache;
 import edu.purdue.dualitylab.evaluation.util.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,12 +22,74 @@ public class UpdateDistancesService {
 
     private static final Logger logger = LoggerFactory.getLogger(UpdateDistancesService.class);
 
+    private record DistanceInput(
+            RawTestSuiteResultRow rawRow,
+            Tree truthTree,
+            Tree reuseTree
+    ) {
+    }
+
     private final RegexDatabaseClient databaseClient;
     private final DistanceMeasure<Automaton> automatonDistanceMeasure;
+    private final BoundedCache<String, Optional<Tree>> treeCache;
 
     public UpdateDistancesService(RegexDatabaseClient regexDatabaseClient, DistanceMeasure<Automaton> automatonDistanceMeasure) {
         this.databaseClient = regexDatabaseClient;
         this.automatonDistanceMeasure = automatonDistanceMeasure;
+        this.treeCache = new BoundedCache<>(100);
+    }
+
+    public void computeAndInsertDistanceUpdateRecordsV2() throws SQLException {
+        // first, add the columns if needed
+        logger.info("Adding distance columns to result table schema if needed");
+        try {
+            databaseClient.addDistanceColumnsToResults();
+        } catch (SQLException e) {
+            logger.warn("Error encountered while altering tables", e);
+            logger.warn("continuing anyways...");
+        }
+
+        List<DistanceUpdateRecord> records = databaseClient.loadRawTestSuiteResultsForDistanceUpdate()
+                .flatMap(row -> {
+                    Optional<Tree> truthRegexTree = treeCache.get(row.truthRegex());
+                    if (truthRegexTree == null) {
+                        // the item has not been cached, so we need to build and store it
+                        truthRegexTree = buildTree(row.truthRegex());
+                        treeCache.put(row.truthRegex(), truthRegexTree);
+                    }
+
+                    // now that it has been built, we can interpret
+                    if (truthRegexTree.isEmpty()) {
+                        logger.warn("truth tree is empty for {}, so skipping row for test suite {}", row.truthRegexId(), row.testSuiteId());
+                        // this pattern could not be built, so we should skip
+                        return Optional.<DistanceInput>empty().stream();
+                    }
+
+                    Optional<Tree> candidateRegexTree = treeCache.get(row.candidateRegex());
+                    if (candidateRegexTree == null) {
+                        candidateRegexTree = buildTree(row.candidateRegex());
+                        treeCache.put(row.candidateRegex(), candidateRegexTree);
+                    }
+
+                    if (candidateRegexTree.isEmpty()) {
+                        logger.warn("candidate tree is empty for {}, so skipping row for test suite {}", row.candidateRegexId(), row.testSuiteId());
+                        return Optional.<DistanceInput>empty().stream();
+                    }
+
+                    return Optional.of(new DistanceInput(row, truthRegexTree.get(), candidateRegexTree.get())).stream();
+                })
+                .map(input -> {
+                    logger.info("computing distance between /{}/ and /{}/", input.rawRow().truthRegex(), input.rawRow().candidateRegex());
+                    int astEditDistance = AstDistance.editDistance(input.truthTree(), input.reuseTree());
+
+                    // TODO here we would also load up automaton stuff
+
+                    return new DistanceUpdateRecord(input.rawRow().testSuiteId(), input.rawRow().candidateRegexId(), astEditDistance, Double.NaN);
+                })
+                .toList();
+
+        databaseClient.updateManyTestSuiteResultsDistances(records);
+        logger.info("finished computing all distance measurements");
     }
 
     public void computeAndInsertDistanceUpdateRecords() throws SQLException {
@@ -38,6 +101,7 @@ public class UpdateDistancesService {
             logger.warn("Error encountered while altering tables", e);
             logger.warn("continuing anyways...");
         }
+
 
         // next, compute the distances for everything
         logger.info("loading test suite result rows...");
