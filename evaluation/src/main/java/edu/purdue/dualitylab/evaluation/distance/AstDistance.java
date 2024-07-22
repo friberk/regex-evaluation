@@ -4,6 +4,7 @@ import edu.purdue.dualitylab.evaluation.PCRELexer;
 import edu.purdue.dualitylab.evaluation.PCREParser;
 import edu.purdue.dualitylab.evaluation.distance.ast.Node;
 import edu.purdue.dualitylab.evaluation.distance.ast.Tree;
+import edu.purdue.dualitylab.evaluation.distance.ast.ZhangShasha;
 import edu.purdue.dualitylab.evaluation.distance.ast.ZhangShashaTreeBuilder;
 import org.antlr.v4.runtime.*;
 import org.antlr.v4.runtime.tree.ParseTree;
@@ -36,7 +37,7 @@ public class AstDistance {
     }
 
     public static int editDistance(Tree truthTree, Tree candidateTree) {
-        return Tree.ZhangShasha(truthTree, candidateTree);
+        return ZhangShasha.editDistance(truthTree, candidateTree);
     }
 
     private static Map<Character, String> symbolMap = null;
@@ -110,26 +111,6 @@ public class AstDistance {
         // if node is a character or atom
         } else {
             return changeSymbol(node.getText());
-        }
-    }
-
-    private static void traverse(ParseTree node, StringBuilder sb, PCREParser parser) {
-        if (node == null) {
-            return;
-        }
-
-        // adding the correct label to the string
-        sb.append(getLabel(node, parser));
-
-        if (node.getChildCount() > 0) {
-            sb.append("(");
-            for (int i = 0; i < node.getChildCount(); i++) {
-                traverse(node.getChild(i), sb, parser);
-                if (i < node.getChildCount() - 1) {
-                    sb.append(" ");
-                }
-            }
-            sb.append(")");
         }
     }
 }
