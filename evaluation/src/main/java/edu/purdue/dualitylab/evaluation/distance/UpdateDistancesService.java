@@ -17,6 +17,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.function.BiPredicate;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 public class UpdateDistancesService {
@@ -42,15 +44,19 @@ public class UpdateDistancesService {
 
     private final RegexDatabaseClient databaseClient;
     private final DistanceMeasure<Automaton> automatonDistanceMeasure;
+    private final Predicate<String> regexValidityChecker;
+    private final BiPredicate<String, String> relativeRegexValidityChecker;
     // have two difference caches because the truth regex cache can be much smaller because we should process a whole
     // chunk of the truth regex at the same time
     private final BoundedCache<String, Optional<Tree>> truthRegexTreeCache;
     private final BoundedCache<String, Optional<Tree>> candidateRegexTreeCache;
     private final BoundedCache<Pair<Long, Long>, Integer> cachedEditDistances;
 
-    public UpdateDistancesService(RegexDatabaseClient regexDatabaseClient, DistanceMeasure<Automaton> automatonDistanceMeasure) {
+    public UpdateDistancesService(RegexDatabaseClient regexDatabaseClient, DistanceMeasure<Automaton> automatonDistanceMeasure, Predicate<String> regexValidityChecker, BiPredicate<String, String> relativeRegexValidityChecker) {
         this.databaseClient = regexDatabaseClient;
         this.automatonDistanceMeasure = automatonDistanceMeasure;
+        this.regexValidityChecker = regexValidityChecker;
+        this.relativeRegexValidityChecker = relativeRegexValidityChecker;
         this.candidateRegexTreeCache = new BoundedCache<>(300);
         this.truthRegexTreeCache = new BoundedCache<>(10);
         this.cachedEditDistances = new BoundedCache<>(100);
@@ -71,7 +77,23 @@ public class UpdateDistancesService {
                     // if we have computed this score already, use the cached version
                     OptionalInt cachedScore = hasCachedScore(row);
                     if (cachedScore.isPresent()) {
-                        return Optional.<DistanceInput>of(DistanceInput.useCachedScore(row, cachedScore.getAsInt())).stream();
+                        return Optional.of(DistanceInput.useCachedScore(row, cachedScore.getAsInt())).stream();
+                    }
+
+                    // check if regexes are too long
+                    if (!regexValidityChecker.test(row.truthRegex())) {
+                        logger.info("regex /{}/ did not pass checks", row.truthRegex());
+                        return Optional.<DistanceInput>empty().stream();
+                    }
+
+                    if (!regexValidityChecker.test(row.candidateRegex())) {
+                        logger.info("regex /{}/ did not pass checks", row.candidateRegex());
+                        return Optional.<DistanceInput>empty().stream();
+                    }
+
+                    if (!relativeRegexValidityChecker.test(row.truthRegex(), row.candidateRegex())) {
+                        logger.info("relative regex check did not pass checks");
+                        return Optional.<DistanceInput>empty().stream();
                     }
 
                     Optional<Tree> truthRegexTree = truthRegexTreeCache.get(row.truthRegex());

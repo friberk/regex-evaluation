@@ -11,10 +11,34 @@ import org.sqlite.SQLiteConfig;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.util.function.BiPredicate;
+import java.util.function.Predicate;
 
 public class UpdateDistancesCommand extends AbstractCommand<UpdateDistancesArgs, Void> {
 
     private static final Logger logger = LoggerFactory.getLogger(UpdateDistancesCommand.class);
+
+    private static Predicate<String> createRegexChecker(UpdateDistancesArgs args) {
+        if (args.getMaxRegexLength().isEmpty()) {
+            return (pattern) -> true;
+        }
+
+        int maxLength = args.getMaxRegexLength().getAsInt();
+        return (pattern) -> {
+            return pattern.length() < maxLength;
+        };
+    }
+
+    private static BiPredicate<String, String> createRegexRelativeChecker(UpdateDistancesArgs args) {
+        if (args.getMaxRegexDistance().isEmpty()) {
+            return (l, r) -> true;
+        }
+
+        int maxDiff = args.getMaxRegexDistance().getAsInt();
+        return (truth, candidate) -> {
+            return Math.abs(truth.length() - candidate.length()) <= maxDiff;
+        };
+    }
 
     private final SQLiteConfig sqliteConfig;
 
@@ -31,7 +55,7 @@ public class UpdateDistancesCommand extends AbstractCommand<UpdateDistancesArgs,
         RegexDatabaseClient regexDatabaseClient = new RegexDatabaseClient(connection);
         logger.info("Successfully connected to database");
 
-        UpdateDistancesService updateDistancesService = new UpdateDistancesService(regexDatabaseClient, new OverhangSizeDistance());
+        UpdateDistancesService updateDistancesService = new UpdateDistancesService(regexDatabaseClient, new OverhangSizeDistance(), createRegexChecker(args), createRegexRelativeChecker(args));
 
         logger.info("beginning to update distances...");
         updateDistancesService.computeAndInsertDistanceUpdateRecordsV2();
