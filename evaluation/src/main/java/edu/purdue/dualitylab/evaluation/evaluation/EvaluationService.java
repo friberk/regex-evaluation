@@ -22,7 +22,6 @@ public class EvaluationService {
 
     private final RegexDatabaseClient databaseClient;
     private final TestSuiteService testSuiteService;
-    private final DistanceMeasure<Automaton> distanceMeasure;
 
     public EvaluationService(RegexDatabaseClient databaseClient) {
         this(databaseClient, new IntersectionOverUnionDistance());
@@ -31,7 +30,6 @@ public class EvaluationService {
     public EvaluationService(RegexDatabaseClient databaseClient, DistanceMeasure<Automaton> distanceMeasure) {
         this.testSuiteService = new TestSuiteService(databaseClient);
         this.databaseClient = databaseClient;
-        this.distanceMeasure = distanceMeasure;
     }
 
     public void evaluateAndSaveTestSuites() throws SQLException {
@@ -61,7 +59,7 @@ public class EvaluationService {
                         .toList();
 
                 for (RegexTestSuite testSuite : testSuites) {
-                    jobExecutionContext.submit(new TestSuiteEvaluator(safeExecutionContext, testSuite, candidateEntities, this.distanceMeasure));
+                    jobExecutionContext.submit(new TestSuiteEvaluator(safeExecutionContext, testSuite, candidateEntities));
                 }
 
                 logger.info("Waiting on test suites...");

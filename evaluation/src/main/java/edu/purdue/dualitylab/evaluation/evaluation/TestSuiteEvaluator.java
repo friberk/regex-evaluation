@@ -3,8 +3,8 @@ package edu.purdue.dualitylab.evaluation.evaluation;
 import dk.brics.automaton.Automaton;
 import dk.brics.automaton.RegExp;
 import edu.purdue.dualitylab.evaluation.distance.AstDistance;
-import edu.purdue.dualitylab.evaluation.distance.DistanceMeasure;
 import edu.purdue.dualitylab.evaluation.distance.ast.Tree;
+import edu.purdue.dualitylab.evaluation.model.LanguageApproximation;
 import edu.purdue.dualitylab.evaluation.model.RegexTestSuite;
 import edu.purdue.dualitylab.evaluation.model.RegexTestSuiteSolution;
 import edu.purdue.dualitylab.evaluation.model.RegexTestSuiteString;
@@ -18,6 +18,7 @@ import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
@@ -49,21 +50,17 @@ public class TestSuiteEvaluator implements Callable<Map<Long, Set<RegexTestSuite
     private final Collection<CompiledRegexEntity> candidates;
 
     /**
-     * Method of measuring the distance between two candidates
+     * Language approximation for truth language. Set of positive and negative strings created from the automaton
      */
-    private final DistanceMeasure<Automaton> distanceMeasure;
+    private final LanguageApproximation truthLanguageApprox;
 
-    /**
-     * Automaton of the ground truth regex
-     */
-    private final Automaton truthAutomaton;
-
-    public TestSuiteEvaluator(ExecutorService safeExecutionContext, RegexTestSuite testSuite, Collection<CompiledRegexEntity> candidates, DistanceMeasure<Automaton> candidateDistanceMeasure) {
+    public TestSuiteEvaluator(ExecutorService safeExecutionContext, RegexTestSuite testSuite, Collection<CompiledRegexEntity> candidates) {
         this.safeExecutionContext = safeExecutionContext;
         this.testSuite = testSuite;
         this.candidates = candidates;
-        this.distanceMeasure = candidateDistanceMeasure;
-        this.truthAutomaton = new RegExp(testSuite.pattern()).toAutomaton(true);
+        Automaton truthAutomaton = new RegExp(testSuite.pattern()).toAutomaton(true);
+        SafeMatcher truthSafeMatcher = new SafeMatcher(Pattern.compile(testSuite.pattern()), safeExecutionContext);
+        this.truthLanguageApprox = LanguageApproximation.create(truthAutomaton, truthSafeMatcher);
     }
 
     @Override
@@ -97,15 +94,16 @@ public class TestSuiteEvaluator implements Callable<Map<Long, Set<RegexTestSuite
                     }
 
                     // measure automaton distance
-                    Automaton rightAutomaton = new RegExp(result.entity().regexPattern().pattern()).toAutomaton(true);
-                    double automatonDistance = this.distanceMeasure.apply(truthAutomaton, rightAutomaton);
+                    double fullESimilarity = truthLanguageApprox.eSimilarity(result.entity().regexPattern(), SafeMatcher.MatchMode.FULL, safeExecutionContext);
+                    double partialESimilarity = truthLanguageApprox.eSimilarity(result.entity().regexPattern(), SafeMatcher.MatchMode.PARTIAL, safeExecutionContext);
 
                     return new RegexTestSuiteSolution(result.entity().id(),
                             result.entity().projectId(),
                             result.fullMatch(),
                             result.partialMatch(),
                             astDistance,
-                            automatonDistance
+                            fullESimilarity,
+                            partialESimilarity
                             );
                 })
                 .collect(Collectors.toSet());
