@@ -16,8 +16,10 @@ CREATE TABLE IF NOT EXISTS test_suite_result (
     partial_match_result BOOLEAN,
     -- the distance between this candidate and the truth AST
     ast_distance INTEGER,
-    -- the distance between this candidate and the truth automaton
-    automaton_distance DOUBLE,
+    -- the distance between this candidate and the truth automaton under full-matching context
+    full_automaton_distance DOUBLE,
+    -- the distance between this candidate and the truth automaton under partial-matching context
+    partial_automaton_distance DOUBLE,
     -- this table's primary key is a composite. Every test suite/regex pair should be unique
     PRIMARY KEY (test_suite_id, regex_id),
     FOREIGN KEY (test_suite_id) REFERENCES test_suite(id),

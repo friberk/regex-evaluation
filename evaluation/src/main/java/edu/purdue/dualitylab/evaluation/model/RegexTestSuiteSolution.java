@@ -8,6 +8,7 @@ public record RegexTestSuiteSolution(
         IndeterminateBoolean fullMatch,
         IndeterminateBoolean partialMatch,
         int astDistance,
-        double autoDistance
+        double fullAutoDistance,
+        double partialAutoDistance
 ) {
 }
