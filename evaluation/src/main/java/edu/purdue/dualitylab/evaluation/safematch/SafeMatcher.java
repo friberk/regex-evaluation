@@ -1,5 +1,7 @@
 package edu.purdue.dualitylab.evaluation.safematch;
 
+import edu.purdue.dualitylab.evaluation.model.StringWithSubMatch;
+
 import java.time.Duration;
 import java.util.Optional;
 import java.util.concurrent.*;
@@ -16,7 +18,19 @@ public class SafeMatcher {
     public enum MatchResult {
         MATCH,
         NOT_MATCH,
-        TIMEOUT
+        TIMEOUT;
+
+        public static MatchResult fromBoolean(boolean matches) {
+            return matches ? MATCH : NOT_MATCH;
+        }
+
+        public boolean matches() {
+            return this == MATCH;
+        }
+
+        public boolean mismatches() {
+            return this == NOT_MATCH;
+        }
     }
 
     public record PartialMatchResult(
@@ -44,7 +58,36 @@ public class SafeMatcher {
 
         try {
             boolean result = matchResult.get(timeout.toMillis(), TimeUnit.MILLISECONDS);
-            return result ? MatchResult.MATCH : MatchResult.NOT_MATCH;
+            return MatchResult.fromBoolean(result);
+        } catch (ExecutionException e) {
+            throw new RuntimeException(e);
+        } catch (InterruptedException | TimeoutException e) {
+            // if it times out, cancel further execution
+            matchResult.cancel(true);
+            return MatchResult.TIMEOUT;
+        }
+    }
+
+    /**
+     * Determine this safe matcher matches the given substring with sub match. If the mode is full match, then the whole
+     * string is evaluated. Otherwise, a sub-match is found and checked if it is the same as the truth.
+     *
+     * @param stringWithSubMatch content to match
+     * @param mode How to match
+     * @param timeout Amount of time before timeout
+     * @return Match result
+     */
+    public MatchResult match(StringWithSubMatch stringWithSubMatch, MatchMode mode, Duration timeout) {
+        if (mode == MatchMode.FULL) {
+            return match(stringWithSubMatch.wholeString(), MatchMode.FULL, timeout);
+        }
+
+        Future<PartialMatchResult> matchResult = executorService.submit(partialMatchTask(stringWithSubMatch.wholeString()));
+
+        try {
+            PartialMatchResult result = matchResult.get(timeout.toMillis(), TimeUnit.MILLISECONDS);
+            boolean matches = stringWithSubMatch.subMatchStart() == result.start() && stringWithSubMatch.subMatchEnd() == result.end();
+            return MatchResult.fromBoolean(matches);
         } catch (ExecutionException e) {
             throw new RuntimeException(e);
         } catch (InterruptedException | TimeoutException e) {
