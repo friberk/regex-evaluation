@@ -9,6 +9,8 @@ public record StackOverflowRegexPost(
         String uri,
         List<String> uriAliases
 ) {
+    public static final int STACK_OVERFLOW_ORIGIN_ID = 1;
+
     public Stream<String> patternStream() {
         return patterns().stream();
     }

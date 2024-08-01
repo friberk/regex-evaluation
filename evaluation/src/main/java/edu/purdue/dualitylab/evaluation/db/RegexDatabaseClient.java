@@ -1,6 +1,7 @@
 package edu.purdue.dualitylab.evaluation.db;
 
 import dk.brics.automaton.AutomatonCoverage;
+import edu.purdue.dualitylab.evaluation.internet.StackOverflowRegexPost;
 import edu.purdue.dualitylab.evaluation.model.*;
 import edu.purdue.dualitylab.evaluation.util.IndeterminateBoolean;
 import org.slf4j.Logger;
@@ -214,6 +215,58 @@ public final class RegexDatabaseClient implements AutoCloseable {
         PreparedStatement stmt = connection.prepareStatement(queryText);
         stmt.setLong(1, projectId);
         return streamQuery(stmt, CandidateRegex.class);
+    }
+
+    public void setupInternetRegexDatabase() throws SQLException {
+        executedBatchNamedQuery("create_internet_tables.sql");
+    }
+
+    public void insertManyStackOverflowRegexes(Collection<StackOverflowRegexPost> stackOverflowRegexPosts) throws SQLException {
+        String queryText = loadNamedQuery("insert_internet_regex.sql").orElseThrow();
+        boolean oldAutoCommitStatus = connection.getAutoCommit();
+        connection.setAutoCommit(false);
+
+        PreparedStatement stmt = connection.prepareStatement(queryText);
+        for (StackOverflowRegexPost post : stackOverflowRegexPosts) {
+            for (String pattern : post.patterns()) {
+                stmt.setInt(1, StackOverflowRegexPost.STACK_OVERFLOW_ORIGIN_ID);
+                stmt.setString(2, pattern);
+                stmt.setString(3, post.uri());
+
+                stmt.execute();
+            }
+        }
+
+        connection.commit();
+        connection.setAutoCommit(oldAutoCommitStatus);
+        stmt.close();
+    }
+
+    public Stream<CandidateRegex> loadInternetCandidates() throws SQLException {
+        String queryText = loadNamedQuery("load_stack_overflow_regexes.sql").orElseThrow();
+        return streamQuery(queryText, RawInternetRegex.class)
+                .map(internetRegex -> new CandidateRegex(internetRegex.id(), internetRegex.originId(), internetRegex.pattern()));
+    }
+
+    public void insertManyInternetTestSuiteResults(Map<Long, Set<RegexTestSuiteSolution>> solutions) throws SQLException {
+        String queryText = loadNamedQuery("insert_internet_regex_solution.sql").orElseThrow();
+        boolean oldAutoCommitStatus = connection.getAutoCommit();
+        connection.setAutoCommit(false);
+        PreparedStatement stmt = connection.prepareStatement(queryText);
+        for (Map.Entry<Long, Set<RegexTestSuiteSolution>> entry : solutions.entrySet()) {
+            long testSuiteId = entry.getKey();
+            for (RegexTestSuiteSolution match : entry.getValue()) {
+                stmt.setLong(1, testSuiteId);
+                stmt.setLong(2, match.regexId());
+                storeIndeterminateBoolean(stmt, 3, match.fullMatch());
+                storeIndeterminateBoolean(stmt, 4, match.partialMatch());
+                stmt.execute();
+            }
+        }
+        connection.commit();
+        connection.setAutoCommit(oldAutoCommitStatus);
+
+        stmt.close();
     }
 
     @Override

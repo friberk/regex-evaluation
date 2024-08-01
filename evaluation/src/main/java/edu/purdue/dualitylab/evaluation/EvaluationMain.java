@@ -1,11 +1,9 @@
 package edu.purdue.dualitylab.evaluation;
 
 import com.beust.jcommander.JCommander;
-import edu.purdue.dualitylab.evaluation.args.EvaluateArgs;
-import edu.purdue.dualitylab.evaluation.args.PullTestSuiteArgs;
-import edu.purdue.dualitylab.evaluation.args.RootArgs;
-import edu.purdue.dualitylab.evaluation.args.UpdateDistancesArgs;
+import edu.purdue.dualitylab.evaluation.args.*;
 import edu.purdue.dualitylab.evaluation.commands.EvaluateCommand;
+import edu.purdue.dualitylab.evaluation.commands.InternetRegexesCommand;
 import edu.purdue.dualitylab.evaluation.commands.PullTestSuitesCommand;
 import edu.purdue.dualitylab.evaluation.commands.UpdateDistancesCommand;
 import org.slf4j.Logger;
@@ -21,11 +19,13 @@ public class EvaluationMain {
         PullTestSuiteArgs pullTestSuiteArgs = new PullTestSuiteArgs();
         EvaluateArgs evaluateArgs = new EvaluateArgs();
         UpdateDistancesArgs updateDistancesArgs = new UpdateDistancesArgs();
+        InternetRegexesArgs internetRegexesArgs = new InternetRegexesArgs();
         JCommander jc = JCommander.newBuilder()
                 .addObject(rootArgs)
                 .addCommand("pull-test-suites", pullTestSuiteArgs)
                 .addCommand("evaluate", evaluateArgs)
                 .addCommand("update-distances", updateDistancesArgs)
+                .addCommand("internet-evaluation", internetRegexesArgs)
                 .build();
 
         jc.parse(args);
@@ -51,6 +51,12 @@ public class EvaluationMain {
             case "update-distances":
                 UpdateDistancesCommand updateDistancesCommand = new UpdateDistancesCommand(rootArgs, updateDistancesArgs, dbConfig);
                 updateDistancesCommand.call();
+                break;
+
+            case "internet-evaluation":
+                internetRegexesArgs.checkArguments();
+                InternetRegexesCommand internetRegexesCommand = new InternetRegexesCommand(rootArgs, internetRegexesArgs, dbConfig);
+                internetRegexesCommand.call();
                 break;
 
             default:

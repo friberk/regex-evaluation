@@ -24,7 +24,7 @@ import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 import java.util.stream.Collectors;
 
-public class InternetEvaluationService {
+public final class InternetEvaluationService {
 
     private static final Logger logger = LoggerFactory.getLogger(InternetEvaluationService.class);
 
@@ -51,21 +51,24 @@ public class InternetEvaluationService {
         }
     }
 
-    private final RegexDatabaseClient regexDatabaseClient;
+    private final RegexDatabaseClient internetRegexDatabaseClient;
     private final TestSuiteService testSuiteService;
     private final ObjectMapper mapper;
 
-    public InternetEvaluationService(RegexDatabaseClient regexDatabaseClient) {
-        this.regexDatabaseClient = regexDatabaseClient;
+    public InternetEvaluationService(RegexDatabaseClient internetRegexDatabaseClient, RegexDatabaseClient regexDatabaseClient) {
+        this.internetRegexDatabaseClient = internetRegexDatabaseClient;
         this.testSuiteService = new TestSuiteService(regexDatabaseClient);
         this.mapper = new ObjectMapper();
     }
 
     public void evaluateInternetRegexes() throws SQLException, FileNotFoundException {
 
-        Collection<CompiledRegexEntity> candidates = loadCandidatesFromFile(null);
-        // save these to a file
+        // load internet regex candidates from database
+        Collection<CompiledRegexEntity> candidates = internetRegexDatabaseClient.loadInternetCandidates()
+                .flatMap(candidateRegex -> CompiledRegexEntity.tryCompile(candidateRegex).stream())
+                .toList();
 
+        // save these to a file
         Map<Long, Set<RegexTestSuiteSolution>> collectedTestSuites = new HashMap<>();
         try (AutoCloseableExecutorService safeExecutionContext = new AutoCloseableExecutorService(Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors()));
              AutoCloseableExecutorService jobExecutor = new AutoCloseableExecutorService(Executors.newWorkStealingPool(Runtime.getRuntime().availableProcessors()))) {
@@ -92,7 +95,23 @@ public class InternetEvaluationService {
         }
 
         // save contents to a file
+        logger.info("saving results...");
+        internetRegexDatabaseClient.insertManyInternetTestSuiteResults(collectedTestSuites);
+        logger.info("done");
+    }
 
+    public void loadCandidatesFromFileAndSave(File ndJsonPostsFile) throws FileNotFoundException, SQLException {
+        internetRegexDatabaseClient.setupInternetRegexDatabase();
+        Collection<StackOverflowRegexPost> regexPosts = loadStackOverflowPostsFromFile(ndJsonPostsFile);
+        internetRegexDatabaseClient.insertManyStackOverflowRegexes(regexPosts);
+    }
+
+    private Collection<StackOverflowRegexPost> loadStackOverflowPostsFromFile(File stackOverflowPostsFile) throws FileNotFoundException {
+        BufferedReader reader = new BufferedReader(new FileReader(stackOverflowPostsFile));
+        return reader.lines()
+                .map(String::trim)
+                .flatMap(line -> parseNDJsonLine(this.mapper, line).stream())
+                .collect(Collectors.toList());
     }
 
     /**
@@ -103,10 +122,7 @@ public class InternetEvaluationService {
      */
     private Collection<CompiledRegexEntity> loadCandidatesFromFile(File ndJsonPostsFiles) throws FileNotFoundException {
         AtomicLong patternIds = new AtomicLong(0);
-        BufferedReader reader = new BufferedReader(new FileReader(ndJsonPostsFiles));
-        return reader.lines()
-                .map(String::trim)
-                .flatMap(line -> parseNDJsonLine(this.mapper, line).stream())
+        return loadStackOverflowPostsFromFile(ndJsonPostsFiles).stream()
                 .flatMap(StackOverflowRegexPost::patternStream)
                 .distinct()
                 .flatMap(uniquePattern -> tryCompileRegex(patternIds, uniquePattern).stream())
