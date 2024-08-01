@@ -1,7 +1,5 @@
 package edu.purdue.dualitylab.evaluation.evaluation;
 
-import dk.brics.automaton.Automaton;
-import dk.brics.automaton.RegExp;
 import edu.purdue.dualitylab.evaluation.distance.AstDistance;
 import edu.purdue.dualitylab.evaluation.distance.ast.Tree;
 import edu.purdue.dualitylab.evaluation.model.LanguageApproximation;
@@ -18,7 +16,6 @@ import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
@@ -58,9 +55,10 @@ public class TestSuiteEvaluator implements Callable<Map<Long, Set<RegexTestSuite
         this.safeExecutionContext = safeExecutionContext;
         this.testSuite = testSuite;
         this.candidates = candidates;
-        Automaton truthAutomaton = new RegExp(testSuite.pattern()).toAutomaton(true);
-        SafeMatcher truthSafeMatcher = new SafeMatcher(Pattern.compile(testSuite.pattern()), safeExecutionContext);
-        this.truthLanguageApprox = LanguageApproximation.create(truthAutomaton, truthSafeMatcher);
+        // Automaton truthAutomaton = new RegExp(testSuite.pattern()).toAutomaton(true);
+        // SafeMatcher truthSafeMatcher = new SafeMatcher(Pattern.compile(testSuite.pattern()), safeExecutionContext);
+        // this.truthLanguageApprox = LanguageApproximation.create(truthAutomaton, truthSafeMatcher);
+        this.truthLanguageApprox = null;
     }
 
     @Override
@@ -84,7 +82,6 @@ public class TestSuiteEvaluator implements Callable<Map<Long, Set<RegexTestSuite
                 // only interested in test suite results that are at least either a partial or full match
                 .filter(result -> result.fullMatch().coerceToBoolean() || result.partialMatch().coerceToBoolean())
                 .map(result -> {
-
                     // measure edit distance
                     int astDistance;
                     try {
@@ -94,8 +91,12 @@ public class TestSuiteEvaluator implements Callable<Map<Long, Set<RegexTestSuite
                     }
 
                     // measure automaton distance
-                    double fullESimilarity = truthLanguageApprox.eSimilarity(result.entity().regexPattern(), SafeMatcher.MatchMode.FULL, safeExecutionContext);
-                    double partialESimilarity = truthLanguageApprox.eSimilarity(result.entity().regexPattern(), SafeMatcher.MatchMode.PARTIAL, safeExecutionContext);
+                    double fullESimilarity = Double.NaN;
+                    double partialESimilarity = Double.NaN;
+                    if (truthLanguageApprox != null) {
+                        fullESimilarity = truthLanguageApprox.eSimilarity(result.entity().regexPattern(), SafeMatcher.MatchMode.FULL, safeExecutionContext);
+                        partialESimilarity = truthLanguageApprox.eSimilarity(result.entity().regexPattern(), SafeMatcher.MatchMode.PARTIAL, safeExecutionContext);
+                    }
 
                     return new RegexTestSuiteSolution(result.entity().id(),
                             result.entity().projectId(),
