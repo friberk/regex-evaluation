@@ -86,7 +86,7 @@ public class TestSuiteEvaluator implements Callable<Map<Long, Set<RegexTestSuite
                     int astDistance;
                     try {
                          astDistance = AstDistance.editDistance(truthRegexTree, result.entity().regexPattern().pattern());
-                    } catch (IOException exe) {
+                    } catch (ArrayIndexOutOfBoundsException | IOException exe) {
                         astDistance = -1;
                     }
 
