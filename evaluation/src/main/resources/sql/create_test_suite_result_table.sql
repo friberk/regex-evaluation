@@ -20,6 +20,14 @@ CREATE TABLE IF NOT EXISTS test_suite_result (
     full_automaton_distance DOUBLE,
     -- the distance between this candidate and the truth automaton under partial-matching context
     partial_automaton_distance DOUBLE,
+    -- relative coverage values. Default to null and update them later
+    full_node_coverage DOUBLE DEFAULT NULL,
+    full_edge_coverage DOUBLE DEFAULT NULL,
+    full_edge_pair_coverage DOUBLE DEFAULT NULL,
+    partial_node_coverage DOUBLE DEFAULT NULL,
+    partial_edge_coverage DOUBLE DEFAULT NULL,
+    partial_edge_pair_coverage DOUBLE DEFAULT NULL,
+
     -- this table's primary key is a composite. Every test suite/regex pair should be unique
     PRIMARY KEY (test_suite_id, regex_id),
     FOREIGN KEY (test_suite_id) REFERENCES test_suite(id),
