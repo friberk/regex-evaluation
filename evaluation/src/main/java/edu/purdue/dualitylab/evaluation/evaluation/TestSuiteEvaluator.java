@@ -1,7 +1,5 @@
 package edu.purdue.dualitylab.evaluation.evaluation;
 
-import edu.purdue.dualitylab.evaluation.distance.AstDistance;
-import edu.purdue.dualitylab.evaluation.distance.ast.Tree;
 import edu.purdue.dualitylab.evaluation.model.LanguageApproximation;
 import edu.purdue.dualitylab.evaluation.model.RegexTestSuite;
 import edu.purdue.dualitylab.evaluation.model.RegexTestSuiteSolution;
@@ -11,7 +9,6 @@ import edu.purdue.dualitylab.evaluation.util.IndeterminateBoolean;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
 import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.Callable;
@@ -65,7 +62,7 @@ public class TestSuiteEvaluator implements Callable<Map<Long, Set<RegexTestSuite
     public Map<Long, Set<RegexTestSuiteSolution>> call() throws Exception {
 
         // truth tree
-        Tree truthRegexTree = AstDistance.buildTree(this.testSuite.pattern());
+        // Tree truthRegexTree = AstDistance.buildTree(this.testSuite.pattern());
 
         Set<RegexTestSuiteSolution> hits = this.candidates.stream()
                 .map(compiledRegexEntity -> {
@@ -83,12 +80,14 @@ public class TestSuiteEvaluator implements Callable<Map<Long, Set<RegexTestSuite
                 .filter(result -> result.fullMatch().coerceToBoolean() || result.partialMatch().coerceToBoolean())
                 .map(result -> {
                     // measure edit distance
-                    int astDistance;
+                    int astDistance = -1;
+                    /*
                     try {
                          astDistance = AstDistance.editDistance(truthRegexTree, result.entity().regexPattern().pattern());
                     } catch (ArrayIndexOutOfBoundsException | IOException exe) {
                         astDistance = -1;
                     }
+                     */
 
                     // measure automaton distance
                     double fullESimilarity = Double.NaN;
