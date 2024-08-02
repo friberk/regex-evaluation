@@ -6,7 +6,7 @@ import edu.purdue.dualitylab.evaluation.db.RegexDatabaseClient;
 import edu.purdue.dualitylab.evaluation.distance.ast.Tree;
 import edu.purdue.dualitylab.evaluation.model.DistanceUpdateRecord;
 import edu.purdue.dualitylab.evaluation.model.RawTestSuiteResultRow;
-import edu.purdue.dualitylab.evaluation.util.BoundedCache;
+import edu.purdue.dualitylab.evaluation.util.cache.LRUBoundedCache;
 import edu.purdue.dualitylab.evaluation.util.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -46,20 +46,20 @@ public class UpdateDistancesService {
     private final DistanceMeasure<Automaton> automatonDistanceMeasure;
     private final Predicate<String> regexValidityChecker;
     private final BiPredicate<String, String> relativeRegexValidityChecker;
-    // have two difference caches because the truth regex cache can be much smaller because we should process a whole
+    // have two difference caches because the truth regex cache can be much smaller because we should process left whole
     // chunk of the truth regex at the same time
-    private final BoundedCache<String, Optional<Tree>> truthRegexTreeCache;
-    private final BoundedCache<String, Optional<Tree>> candidateRegexTreeCache;
-    private final BoundedCache<Pair<Long, Long>, Integer> cachedEditDistances;
+    private final LRUBoundedCache<String, Optional<Tree>> truthRegexTreeCache;
+    private final LRUBoundedCache<String, Optional<Tree>> candidateRegexTreeCache;
+    private final LRUBoundedCache<Pair<Long, Long>, Integer> cachedEditDistances;
 
     public UpdateDistancesService(RegexDatabaseClient regexDatabaseClient, DistanceMeasure<Automaton> automatonDistanceMeasure, Predicate<String> regexValidityChecker, BiPredicate<String, String> relativeRegexValidityChecker) {
         this.databaseClient = regexDatabaseClient;
         this.automatonDistanceMeasure = automatonDistanceMeasure;
         this.regexValidityChecker = regexValidityChecker;
         this.relativeRegexValidityChecker = relativeRegexValidityChecker;
-        this.candidateRegexTreeCache = new BoundedCache<>(300);
-        this.truthRegexTreeCache = new BoundedCache<>(10);
-        this.cachedEditDistances = new BoundedCache<>(100);
+        this.candidateRegexTreeCache = new LRUBoundedCache<>(300);
+        this.truthRegexTreeCache = new LRUBoundedCache<>(10);
+        this.cachedEditDistances = new LRUBoundedCache<>(100);
     }
 
     public void computeAndInsertDistanceUpdateRecordsV2() throws SQLException {
@@ -184,11 +184,11 @@ public class UpdateDistancesService {
                     .map(row -> {
                         Optional<Tree> candidateTree = buildTree(row.candidateRegex());
                         int astDistance = zipOptionals(truthRegexTree, candidateTree)
-                                .map(treePair -> AstDistance.editDistance(treePair.a(), treePair.b()))
+                                .map(treePair -> AstDistance.editDistance(treePair.left(), treePair.right()))
                                 .orElse(-1);
 
                         double automatonDistance = zipOptionals(truthAutomaton, buildAutomaton(row.candidateRegex()))
-                                .map(autoPair -> automatonDistanceMeasure.apply(autoPair.a(), autoPair.b()))
+                                .map(autoPair -> automatonDistanceMeasure.apply(autoPair.left(), autoPair.right()))
                                 .orElse(Double.NaN);
 
                         return new DistanceUpdateRecord(testSuiteId, row.candidateRegexId(), astDistance, automatonDistance);
