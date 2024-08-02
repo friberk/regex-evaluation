@@ -7,10 +7,13 @@ import edu.purdue.dualitylab.evaluation.distance.DistanceMeasure;
 import edu.purdue.dualitylab.evaluation.distance.IntersectionOverUnionDistance;
 import edu.purdue.dualitylab.evaluation.model.RegexTestSuite;
 import edu.purdue.dualitylab.evaluation.model.RegexTestSuiteSolution;
+import edu.purdue.dualitylab.evaluation.model.RelativeCoverageUpdate;
+import edu.purdue.dualitylab.evaluation.util.cache.AutomatonCache;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.sql.SQLException;
+import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicLong;
@@ -84,5 +87,56 @@ public class EvaluationService {
         } catch (SQLException | InterruptedException | ExecutionException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    public void updateRelativeCoverages() {
+        try (AutoCloseableExecutorService safeExecutionContext = new AutoCloseableExecutorService(Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors()));
+             AutoCloseableExecutorService jobExecutor = new AutoCloseableExecutorService(Executors.newWorkStealingPool(Runtime.getRuntime().availableProcessors()))) {
+
+            AutomatonCache automatonCache = new AutomatonCache(200, safeExecutionContext);
+            CompletionService<RelativeCoverageUpdate> jobExecutionContext = new ExecutorCompletionService<>(jobExecutor);
+
+            Map<Long, List<RegexTestSuite>> projectTestSuites = testSuiteService.loadRegexTestSuites()
+                    .collect(Collectors.groupingBy(RegexTestSuite::projectId));
+
+            long totalTestSuites = projectTestSuites.values().stream().mapToInt(List::size).sum();
+
+            AtomicLong totalCollectedTestSuites = new AtomicLong();
+
+            // iterate over each project and its test suites, iterating as we go
+            for (long projectId : projectTestSuites.keySet()) {
+                List<RegexTestSuite> testSuites = projectTestSuites.get(projectId);
+
+                // load a single set of candidate regexes for this project
+                logger.info("Starting to evaluate test suites for project {}", projectId);
+
+                AtomicLong submittedTasks = new AtomicLong();
+                for (RegexTestSuite testSuite : testSuites) {
+                    databaseClient.loadRawTestSuiteResults(testSuite.id())
+                            .flatMap(row -> automatonCache.getCachedOrTryCompile(row.candidateRegex(), Duration.ofMinutes(5)).stream()
+                                    .map(automaton -> new RelativeCoverageEvaluator(testSuite, row, automaton)))
+                            .peek((task) -> submittedTasks.incrementAndGet())
+                            .forEach(jobExecutionContext::submit);
+                }
+
+                List<RelativeCoverageUpdate> batchUpdates = new ArrayList<>();
+                long totalSubmittedTasks = submittedTasks.get();
+                for (long i = 1; i <= totalSubmittedTasks; i++) {
+                    Future<RelativeCoverageUpdate> future = jobExecutionContext.take();
+                    RelativeCoverageUpdate update = future.get();
+                    logger.info("collected {}/{} tasks", i, totalSubmittedTasks);
+                    batchUpdates.add(update);
+                }
+
+                databaseClient.updateManyRelativeCoverages(batchUpdates);
+
+                long collected = totalCollectedTestSuites.addAndGet(testSuites.size());
+                logger.info("finished processing {}/{} test suites", collected, totalTestSuites);
+            }
+        } catch (SQLException | InterruptedException | ExecutionException e) {
+            throw new RuntimeException(e);
+        }
+
+        logger.info("successfully updated all relative coverages");
     }
 }

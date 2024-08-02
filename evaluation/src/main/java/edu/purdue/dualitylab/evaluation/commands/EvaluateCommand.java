@@ -33,8 +33,13 @@ public class EvaluateCommand extends AbstractCommand<EvaluateArgs, Void> {
         regexDatabaseClient.initDatabase(rootArgs.getExtensionPath());
         EvaluationService service = new EvaluationService(regexDatabaseClient);
 
-        logger.info("Starting to evaluate test suites...");
-        service.evaluateAndSaveTestSuites();
+        if (!args.isCoveragesOnly()) {
+            logger.info("Starting to evaluate test suites...");
+            service.evaluateAndSaveTestSuites();
+        }
+
+        logger.info("Starting to evaluate relative coverages");
+        service.updateRelativeCoverages();
 
         regexDatabaseClient.close();
 
