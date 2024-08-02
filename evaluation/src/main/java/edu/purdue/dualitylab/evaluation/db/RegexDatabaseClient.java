@@ -1,5 +1,6 @@
 package edu.purdue.dualitylab.evaluation.db;
 
+import dk.brics.automaton.AutomatonCoverage;
 import edu.purdue.dualitylab.evaluation.model.*;
 import edu.purdue.dualitylab.evaluation.util.IndeterminateBoolean;
 import org.slf4j.Logger;
@@ -96,6 +97,37 @@ public final class RegexDatabaseClient implements AutoCloseable {
 
     public void addDistanceColumnsToResults() throws SQLException {
         executedBatchNamedQuery("alter_results_similarity_columns.sql");
+    }
+
+    public Stream<RawTestSuiteResultRow> loadRawTestSuiteResults(long testSuiteId) throws SQLException {
+        String queryText = loadNamedQuery("load_results_for_test_suite.sql").orElseThrow();
+        PreparedStatement stmt = connection.prepareStatement(queryText);
+        stmt.setLong(1, testSuiteId);
+        return streamQuery(stmt, RawTestSuiteResultRow.class);
+    }
+
+    public void updateManyRelativeCoverages(Collection<RelativeCoverageUpdate> updates) throws SQLException {
+        String queryText = loadNamedQuery("update_test_suite_relative_coverage.sql").orElseThrow();
+        PreparedStatement stmt = connection.prepareStatement(queryText);
+        boolean oldAutoCommitStatus = connection.getAutoCommit();
+        connection.setAutoCommit(false);
+
+        for (RelativeCoverageUpdate update : updates) {
+            var fullCoverage = update.fullCoverage();
+            var partialCoverage = update.partialCoverage();
+
+            int partialStart = storeCoverageSequentialColumns(stmt, 1, fullCoverage);
+            storeCoverageSequentialColumns(stmt, partialStart, partialCoverage);
+
+            stmt.setLong(7, update.testSuiteId());
+            stmt.setLong(8, update.candidateRegexId());
+
+            stmt.execute();
+        }
+
+        connection.commit();
+        connection.setAutoCommit(oldAutoCommitStatus);
+        stmt.close();
     }
 
     public Stream<RawTestSuiteResultRow> loadRawTestSuiteResultsForDistanceUpdate() throws SQLException {
@@ -269,5 +301,12 @@ public final class RegexDatabaseClient implements AutoCloseable {
         } else {
             stmt.setNull(columnIndex, Types.BOOLEAN);
         }
+    }
+
+    private static int storeCoverageSequentialColumns(PreparedStatement stmt, int startingColumnIndex, AutomatonCoverage.VisitationInfoSummary coverageSummary) throws SQLException {
+        storeDoubleOrNullOnNonFinite(stmt, startingColumnIndex, coverageSummary.getNodeCoverage());
+        storeDoubleOrNullOnNonFinite(stmt, startingColumnIndex + 1, coverageSummary.getEdgeCoverage());
+        storeDoubleOrNullOnNonFinite(stmt, startingColumnIndex + 2, coverageSummary.getEdgePairCoverage());
+        return startingColumnIndex + 3;
     }
 }
