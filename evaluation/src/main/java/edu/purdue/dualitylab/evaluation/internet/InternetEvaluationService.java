@@ -79,10 +79,8 @@ public final class InternetEvaluationService {
             AtomicLong jobCount = new AtomicLong(0);
             testSuiteService.loadRegexTestSuites()
                     .map(testSuite -> new TestSuiteEvaluator(safeExecutionContext, testSuite, candidates))
-                    .forEach(evaluationJob -> {
-                        jobCount.getAndIncrement();
-                        jobExecutionContext.submit(evaluationJob);
-                    });
+                    .peek((job) -> jobCount.getAndIncrement())
+                    .forEach(jobExecutionContext::submit);
 
             for (long i = jobCount.get(); i > 0; i--) {
                 Future<Map<Long, Set<RegexTestSuiteSolution>>> future = jobExecutionContext.take();
