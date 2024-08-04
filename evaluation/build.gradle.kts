@@ -9,7 +9,7 @@ plugins {
 }
 
 group = "edu.purdue.dualitylab"
-version = "0.2.8"
+version = "0.4.0"
 
 repositories {
     mavenCentral()
@@ -32,8 +32,8 @@ dependencies {
     // sqlite driver for JDBC
     implementation("org.xerial:sqlite-jdbc:3.46.0.0")
 
+    // antlr for parsing regexes
     antlr("org.antlr:antlr4:4.9.2")
-
 
     // logging
     implementation("org.slf4j:slf4j-api:2.0.13")
