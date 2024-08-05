@@ -26,7 +26,7 @@ public class AutomatonCache extends AbstractBoundedCache<String, Automaton, Auto
             // first, parse the regex
             RegExp regExp;
             try {
-                regExp = new RegExp(pattern);
+                regExp = new RegExp(pattern, RegExp.NONE);
             } catch (IllegalArgumentException exe) {
                 // if parse fails, empty
                 return Optional.empty();
