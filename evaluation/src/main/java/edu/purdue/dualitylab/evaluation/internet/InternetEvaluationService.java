@@ -23,6 +23,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public final class InternetEvaluationService {
 
@@ -99,6 +100,7 @@ public final class InternetEvaluationService {
     }
 
     public void loadCandidatesFromFileAndSave(File ndJsonPostsFile) throws FileNotFoundException, SQLException {
+        logger.info("reading stackoverflow posts from {}", ndJsonPostsFile.getPath());
         internetRegexDatabaseClient.setupInternetRegexDatabase();
         Collection<StackOverflowRegexPost> regexPosts = loadStackOverflowPostsFromFile(ndJsonPostsFile);
         internetRegexDatabaseClient.insertManyStackOverflowRegexes(regexPosts);
@@ -108,6 +110,8 @@ public final class InternetEvaluationService {
         BufferedReader reader = new BufferedReader(new FileReader(stackOverflowPostsFile));
         return reader.lines()
                 .map(String::trim)
+                .flatMap(line -> line.isBlank() ? Stream.empty() : Stream.of(line))
+                .peek(line -> logger.debug("parsing post object '{}'", line))
                 .flatMap(line -> parseNDJsonLine(this.mapper, line).stream())
                 .collect(Collectors.toList());
     }

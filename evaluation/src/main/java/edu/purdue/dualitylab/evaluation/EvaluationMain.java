@@ -54,7 +54,6 @@ public class EvaluationMain {
                 break;
 
             case "internet-evaluation":
-                internetRegexesArgs.checkArguments();
                 InternetRegexesCommand internetRegexesCommand = new InternetRegexesCommand(rootArgs, internetRegexesArgs, dbConfig);
                 internetRegexesCommand.call();
                 break;

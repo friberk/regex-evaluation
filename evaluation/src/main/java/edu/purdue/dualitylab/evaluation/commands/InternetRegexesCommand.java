@@ -42,7 +42,7 @@ public class InternetRegexesCommand extends AbstractCommand<InternetRegexesArgs,
         InternetEvaluationService internetEvaluationService = new InternetEvaluationService(internetRegexDatabaseClient, regexDatabaseClient);
         if (args.isLoadPostsFromFileAndSaveToDb()) {
             logger.info("Starting to load and save StackOverflow post regexes");
-            File outputFile = new File(args.getInternetRegexDatabasePath());
+            File outputFile = new File(args.getStackOverflowPostsFilePath());
             internetEvaluationService.loadCandidatesFromFileAndSave(outputFile);
             logger.info("done");
         }

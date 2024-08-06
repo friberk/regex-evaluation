@@ -243,7 +243,7 @@ public final class RegexDatabaseClient implements AutoCloseable {
     }
 
     public Stream<CandidateRegex> loadInternetCandidates() throws SQLException {
-        String queryText = loadNamedQuery("load_stack_overflow_regexes.sql").orElseThrow();
+        String queryText = loadNamedQuery("load_internet_regexes.sql").orElseThrow();
         return streamQuery(queryText, RawInternetRegex.class)
                 .map(internetRegex -> new CandidateRegex(internetRegex.id(), internetRegex.originId(), internetRegex.pattern()));
     }
