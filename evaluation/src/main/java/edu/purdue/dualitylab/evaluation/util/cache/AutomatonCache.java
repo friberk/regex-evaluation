@@ -8,7 +8,6 @@ import edu.purdue.dualitylab.evaluation.util.Pair;
 import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.*;
-import java.util.regex.PatternSyntaxException;
 
 /**
  * A specialized bounded cache for `Automaton`s. This cache optimizes for performance at the cost of memory. It works
@@ -101,6 +100,9 @@ public class AutomatonCache extends AbstractBoundedCache<String, Automaton, Auto
      * then stop. Otherwise, it tries to compile the given pattern into an automaton with a timeout. If the automaton
      * fails to compile or times out, then the pattern is labelled as failed. If compilation succeeds, then it is cached
      * along with its compile time.
+     * <br>
+     * If memory runs out while trying to compile a regex, execution evicts from the cache until compilation either
+     * fails in another manor, succeeds, or timeouts. These evicted regexes are quietly discarded
      *
      * @param regexPattern The pattern to try to compile
      * @param compilationTimeLimit Maximum amount of time allowed to attempt to compile
@@ -119,16 +121,37 @@ public class AutomatonCache extends AbstractBoundedCache<String, Automaton, Auto
             return Optional.of(Objects.requireNonNull(existing));
         }
 
-        // otherwise, we need to actually compile this pattern
-        Future<Optional<Pair<Automaton, Long>>> compilationTask = automatonCompilationContext.submit(new CompileAutomatonTask(regexPattern));
-        Optional<Pair<Automaton, Long>> compiledAutomaton;
-        try {
-            compiledAutomaton = compilationTask.get(compilationTimeLimit.toMillis(), TimeUnit.MILLISECONDS);
-        } catch (InterruptedException | ExecutionException e) {
-            throw new RuntimeException(e);
-        } catch (TimeoutException e) {
-            compilationTask.cancel(true);
-            compiledAutomaton = Optional.empty();
+        boolean keepGoing = true;
+        Optional<Pair<Automaton, Long>> compiledAutomaton = Optional.empty();
+        final int retryLimit = 10;
+        int retryCount = 0;
+        while (keepGoing && retryCount < retryLimit) {
+            // otherwise, we need to actually compile this pattern
+            Future<Optional<Pair<Automaton, Long>>> compilationTask = automatonCompilationContext.submit(new CompileAutomatonTask(regexPattern));
+            try {
+                compiledAutomaton = compilationTask.get(compilationTimeLimit.toMillis(), TimeUnit.MILLISECONDS);
+                keepGoing = false;
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            } catch (TimeoutException e) {
+                compilationTask.cancel(true);
+                compiledAutomaton = Optional.empty();
+                keepGoing = false;
+            } catch (ExecutionException exe) {
+                // figure out what happened
+                if (exe.getCause() instanceof OutOfMemoryError) {
+                    // if we ran out of memory while trying to compile, try evicting something and starting over.
+                    compilationTask.cancel(false);
+                    String evictKey = selectEvictKey();
+                    this.remove(evictKey);
+                    retryCount++;
+                    continue;
+                }
+
+                // otherwise, just treat as a problem
+                compiledAutomaton = Optional.empty();
+                keepGoing = false;
+            }
         }
 
         if (compiledAutomaton.isEmpty()) {
