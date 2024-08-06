@@ -124,7 +124,7 @@ public class EvaluationService {
                 for (long i = 1; i <= totalSubmittedTasks; i++) {
                     Future<RelativeCoverageUpdate> future = jobExecutionContext.take();
                     RelativeCoverageUpdate update = future.get();
-                    logger.info("collected {}/{} tasks", i, totalSubmittedTasks);
+                    logger.debug("collected {}/{} tasks", i, totalSubmittedTasks);
                     batchUpdates.add(update);
                 }
 

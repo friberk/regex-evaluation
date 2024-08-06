@@ -9,7 +9,7 @@ plugins {
 }
 
 group = "edu.purdue.dualitylab"
-version = "0.4.0"
+version = "0.4.2"
 
 repositories {
     mavenCentral()
@@ -56,6 +56,7 @@ docker {
         baseImage.set("amazoncorretto:22-jdk")
         user.set("charlie")
         images.set(setOf("softwaresale/regex-evaluator:$version"))
+        jvmArgs.set(listOf("-Xms50g", "-Xmx125g"))
     }
 }
 
