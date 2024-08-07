@@ -5,6 +5,7 @@ import edu.purdue.dualitylab.evaluation.db.RawTestSuiteCollector;
 import edu.purdue.dualitylab.evaluation.db.RegexDatabaseClient;
 import edu.purdue.dualitylab.evaluation.model.*;
 import edu.purdue.dualitylab.evaluation.safematch.SafeMatcher;
+import edu.purdue.dualitylab.evaluation.util.CoverageUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -86,27 +87,12 @@ public final class TestSuiteService {
         Pattern pattern;
         statistics.ifPresent(TestSuiteStatistics::incrementTotalTestSuites);
         try {
-            logger.info("Starting to compile automaton for pattern /{}/...", stringSet.pattern());
-            RegExp regExp = new RegExp(stringSet.pattern(), RegExp.NONE);
-            Automaton auto = regExp.toAutomaton();
-            logger.info("determinizing...");
-            auto.determinize();
-            logger.info("minimizing...");
-            auto.minimize();
-            logger.info("Beginning to create coverage automaton for automaton with {} states and {} transitions", auto.getNumberOfStates(), auto.getNumberOfTransitions());
-            coverage = new AutomatonCoverage(auto);
-            logger.info("Successfully compiled");
+            coverage = CoverageUtils.createAutomatonCoverage(stringSet.pattern());
         } catch (IllegalArgumentException exe) {
-            logger.warn("Failed to compile automaton /{}/: {}", stringSet.pattern(), exe.getMessage());
             // one of these failed to compile, so it is doomed :(
             statistics.ifPresent(TestSuiteStatistics::incrementBadSyntaxPatterns);
             return Optional.empty();
-        } catch (DfaBudgetExceededException exe) {
-            logger.warn("DFA budget exceeded for pattern /{}/: {}", stringSet.pattern(), exe.getMessage());
-            statistics.ifPresent(TestSuiteStatistics::incrementDFABudgetExceeded);
-            return Optional.empty();
-        } catch (StackOverflowError so) {
-            logger.warn("StackOverflow while building automaton for pattern /{}/: {}", stringSet.pattern(), so.getMessage());
+        } catch (DfaBudgetExceededException | StackOverflowError exe) {
             statistics.ifPresent(TestSuiteStatistics::incrementDFABudgetExceeded);
             return Optional.empty();
         }
