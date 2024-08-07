@@ -3,6 +3,7 @@ package edu.purdue.dualitylab.evaluation.args;
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.Parameters;
 
+import java.util.Objects;
 import java.util.Optional;
 
 @Parameters(commandDescription = "Pull test suites from database, categorize strings, compute coverages, and store them")
@@ -16,6 +17,9 @@ public class PullTestSuiteArgs {
     @Parameter(names = { "-l", "--max-string-length" }, description = "Inclusive upper limit on test suite string length")
     private Integer maxStringLength;
 
+    @Parameter(names = {"-u", "--update-coverage"}, description = "if flag is provided, only update coverages for test suites")
+    private Boolean updateCoverages;
+
     public String getDatabaseFile() {
         return databaseFile;
     }
@@ -26,5 +30,9 @@ public class PullTestSuiteArgs {
 
     public Optional<Integer> getMaxStringLength() {
         return Optional.ofNullable(maxStringLength);
+    }
+
+    public boolean getUpdateCoverages() {
+        return Objects.requireNonNullElse(updateCoverages, false);
     }
 }

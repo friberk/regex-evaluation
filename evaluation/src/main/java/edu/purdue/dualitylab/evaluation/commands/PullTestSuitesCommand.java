@@ -49,6 +49,13 @@ public class PullTestSuitesCommand extends AbstractCommand<PullTestSuiteArgs, Vo
         logger.info("Starting to load test suites...");
         TestSuiteService testSuiteService = new TestSuiteService(regexDatabaseClient);
 
+        if (args.getUpdateCoverages()) {
+            logger.info("just updating coverages");
+            testSuiteService.updateTestSuiteCoverages();
+            logger.info("successfully updated coverages");
+            return null;
+        }
+
         // String reportPath = "/home/charlie/backup/research/5-30-regexes/test-suites.ndjson";
         TestSuiteStatistics testSuiteStatistics = new TestSuiteStatistics();
 

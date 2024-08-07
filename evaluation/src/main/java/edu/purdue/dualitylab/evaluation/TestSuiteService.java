@@ -47,6 +47,31 @@ public final class TestSuiteService {
                 .flatMap(rawSet -> expandTestSuite(rawSet, stats, safeMatchContext).stream());
     }
 
+    public void updateTestSuiteCoverages() throws SQLException {
+        Collection<RegexTestSuite> existingTestSuites = loadRegexTestSuites().toList();
+
+        Map<Long, AutomatonCoverage> updatedCoverages = new HashMap<>();
+        for (RegexTestSuite regexTestSuite : existingTestSuites) {
+            // compile the automaton
+            Optional<AutomatonCoverage> coverageOpt = CoverageUtils.createAutomatonCoverageOptional(regexTestSuite.pattern());
+            if (coverageOpt.isEmpty()) {
+                // skip this test suite if we can't actually get the coverage
+                continue;
+            }
+
+            // evaluate coverage
+            AutomatonCoverage coverage = coverageOpt.get();
+            regexTestSuite.strings().stream()
+                    .map(RegexTestSuiteString::subject)
+                    .forEach(coverage::evaluate);
+
+            updatedCoverages.put(regexTestSuite.id(), coverage);
+        }
+
+        // save all updated coverages
+        databaseClient.updateManyTestSuiteCoverages(updatedCoverages);
+    }
+
     private List<RegexStringSet> loadRawRegexTestSuites(int maxStringLength) throws SQLException {
 
         List<RegexStringSet> allRegexStringSets = new ArrayList<>();

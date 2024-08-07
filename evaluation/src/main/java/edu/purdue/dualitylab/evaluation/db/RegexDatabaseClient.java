@@ -106,6 +106,29 @@ public final class RegexDatabaseClient implements AutoCloseable {
         return streamQuery(stmt, RawTestSuiteResultRow.class);
     }
 
+    public void updateManyTestSuiteCoverages(Map<Long, AutomatonCoverage> coverages) throws SQLException {
+        String queryText = loadNamedQuery("update_test_suite_coverages.sql").orElseThrow();
+        PreparedStatement stmt = connection.prepareStatement(queryText);
+        boolean oldAutoCommitStatus = connection.getAutoCommit();
+        connection.setAutoCommit(false);
+
+        for (Map.Entry<Long, AutomatonCoverage> update : coverages.entrySet()) {
+            var fullCoverage = update.getValue().getFullMatchVisitationInfoSummary();
+            var partialCoverage = update.getValue().getPartialMatchVisitationInfoSummary();
+
+            int partialStart = storeCoverageSequentialColumns(stmt, 1, fullCoverage);
+            storeCoverageSequentialColumns(stmt, partialStart, partialCoverage);
+
+            stmt.setLong(7, update.getKey());
+
+            stmt.execute();
+        }
+
+        connection.commit();
+        connection.setAutoCommit(oldAutoCommitStatus);
+        stmt.close();
+    }
+
     public void updateManyRelativeCoverages(Collection<RelativeCoverageUpdate> updates) throws SQLException {
         String queryText = loadNamedQuery("update_test_suite_relative_coverage.sql").orElseThrow();
         PreparedStatement stmt = connection.prepareStatement(queryText);
