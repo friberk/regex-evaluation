@@ -102,18 +102,26 @@ public final class InternetEvaluationService {
     public void loadCandidatesFromFileAndSave(File ndJsonPostsFile) throws FileNotFoundException, SQLException {
         logger.info("reading stackoverflow posts from {}", ndJsonPostsFile.getPath());
         internetRegexDatabaseClient.setupInternetRegexDatabase();
-        Collection<StackOverflowRegexPost> regexPosts = loadStackOverflowPostsFromFile(ndJsonPostsFile);
+        Collection<StackOverflowRegexPost> regexPosts = loadStackOverflowPostsFromFile(ndJsonPostsFile)
+                .map(post -> {
+                    Set<String> updatedUniquePatterns = post.patternStream()
+                            .map(RegexFixer::fixInternetRegex)
+                            .collect(Collectors.toSet());
+
+                    return post.withPatterns(updatedUniquePatterns);
+                })
+                .collect(Collectors.toSet());
+
         internetRegexDatabaseClient.insertManyStackOverflowRegexes(regexPosts);
     }
 
-    private Collection<StackOverflowRegexPost> loadStackOverflowPostsFromFile(File stackOverflowPostsFile) throws FileNotFoundException {
+    private Stream<StackOverflowRegexPost> loadStackOverflowPostsFromFile(File stackOverflowPostsFile) throws FileNotFoundException {
         BufferedReader reader = new BufferedReader(new FileReader(stackOverflowPostsFile));
         return reader.lines()
                 .map(String::trim)
                 .flatMap(line -> line.isBlank() ? Stream.empty() : Stream.of(line))
                 .peek(line -> logger.debug("parsing post object '{}'", line))
-                .flatMap(line -> parseNDJsonLine(this.mapper, line).stream())
-                .collect(Collectors.toList());
+                .flatMap(line -> parseNDJsonLine(this.mapper, line).stream());
     }
 
     /**
@@ -124,7 +132,7 @@ public final class InternetEvaluationService {
      */
     private Collection<CompiledRegexEntity> loadCandidatesFromFile(File ndJsonPostsFiles) throws FileNotFoundException {
         AtomicLong patternIds = new AtomicLong(0);
-        return loadStackOverflowPostsFromFile(ndJsonPostsFiles).stream()
+        return loadStackOverflowPostsFromFile(ndJsonPostsFiles)
                 .flatMap(StackOverflowRegexPost::patternStream)
                 .distinct()
                 .flatMap(uniquePattern -> tryCompileRegex(patternIds, uniquePattern).stream())
