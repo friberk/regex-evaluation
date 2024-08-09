@@ -2,10 +2,7 @@ package edu.purdue.dualitylab.evaluation;
 
 import com.beust.jcommander.JCommander;
 import edu.purdue.dualitylab.evaluation.args.*;
-import edu.purdue.dualitylab.evaluation.commands.EvaluateCommand;
-import edu.purdue.dualitylab.evaluation.commands.InternetRegexesCommand;
-import edu.purdue.dualitylab.evaluation.commands.PullTestSuitesCommand;
-import edu.purdue.dualitylab.evaluation.commands.UpdateDistancesCommand;
+import edu.purdue.dualitylab.evaluation.commands.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.sqlite.SQLiteConfig;
@@ -20,12 +17,14 @@ public class EvaluationMain {
         EvaluateArgs evaluateArgs = new EvaluateArgs();
         UpdateDistancesArgs updateDistancesArgs = new UpdateDistancesArgs();
         InternetRegexesArgs internetRegexesArgs = new InternetRegexesArgs();
+        ManualQueryArgs manualQueryArgs = new ManualQueryArgs();
         JCommander jc = JCommander.newBuilder()
                 .addObject(rootArgs)
                 .addCommand("pull-test-suites", pullTestSuiteArgs)
                 .addCommand("evaluate", evaluateArgs)
                 .addCommand("update-distances", updateDistancesArgs)
                 .addCommand("internet-evaluation", internetRegexesArgs)
+                .addCommand("manual-query", manualQueryArgs)
                 .build();
 
         jc.parse(args);
@@ -56,6 +55,11 @@ public class EvaluationMain {
             case "internet-evaluation":
                 InternetRegexesCommand internetRegexesCommand = new InternetRegexesCommand(rootArgs, internetRegexesArgs, dbConfig);
                 internetRegexesCommand.call();
+                break;
+
+            case "manual-query":
+                ManualQueryCommand manualQueryCommand = new ManualQueryCommand(rootArgs, manualQueryArgs, dbConfig);
+                manualQueryCommand.call();
                 break;
 
             default:

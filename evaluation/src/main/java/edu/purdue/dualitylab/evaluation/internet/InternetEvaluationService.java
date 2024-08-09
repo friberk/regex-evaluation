@@ -87,7 +87,7 @@ public final class InternetEvaluationService {
                 Future<Map<Long, Set<RegexTestSuiteSolution>>> future = jobExecutionContext.take();
                 Map<Long, Set<RegexTestSuiteSolution>> result = future.get();
                 collectedTestSuites.putAll(result);
-                logger.info("{}/{} test suites remaining", i - 1, jobCount.get());
+                logger.debug("{}/{} test suites remaining", i - 1, jobCount.get());
             }
         } catch (ExecutionException | InterruptedException e) {
             throw new RuntimeException(e);
