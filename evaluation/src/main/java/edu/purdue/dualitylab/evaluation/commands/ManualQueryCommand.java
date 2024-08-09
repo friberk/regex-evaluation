@@ -57,19 +57,21 @@ public class ManualQueryCommand extends AbstractCommand<ManualQueryArgs, Void> {
 
         ExecutorService safeExecutionContext = Executors.newWorkStealingPool();
 
+        SafeMatcher.MatchMode matchMode = args.getFullMatch() ? SafeMatcher.MatchMode.FULL : SafeMatcher.MatchMode.PARTIAL;
+
         List<ManualTestSuiteResult> candidates = regexDatabaseClient.loadCandidateRegexes(-1)
                 .flatMap(row -> CompiledRegexEntity.tryCompile(row).stream())
                 .filter(compiledRegexEntity -> {
                     SafeMatcher matcher = new SafeMatcher(compiledRegexEntity.regexPattern(), safeExecutionContext);
                     for (String positive : manualTestSuite.positiveStrings()) {
-                        SafeMatcher.MatchResult result = matcher.match(positive, SafeMatcher.MatchMode.FULL, Duration.ofSeconds(30));
+                        SafeMatcher.MatchResult result = matcher.match(positive, matchMode, Duration.ofSeconds(30));
                         if (!result.matches()) {
                             return false;
                         }
                     }
 
                     for (String negative : manualTestSuite.negativeStrings()) {
-                        SafeMatcher.MatchResult result = matcher.match(negative, SafeMatcher.MatchMode.FULL, Duration.ofSeconds(30));
+                        SafeMatcher.MatchResult result = matcher.match(negative, matchMode, Duration.ofSeconds(30));
                         if (!result.mismatches()) {
                             return false;
                         }
@@ -78,7 +80,6 @@ public class ManualQueryCommand extends AbstractCommand<ManualQueryArgs, Void> {
                     return true;
                 })
                 .flatMap(compiledRegexEntity -> {
-
                     // get our automaton coverage
                     Optional<AutomatonCoverage> coverageOpt = CoverageUtils.createAutomatonCoverageOptional(compiledRegexEntity.regexPattern().pattern());
                     if (coverageOpt.isEmpty()) {
