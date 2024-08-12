@@ -10,10 +10,11 @@ import org.slf4j.LoggerFactory;
 import java.io.*;
 import java.sql.*;
 import java.util.*;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
-public final class RegexDatabaseClient implements AutoCloseable {
+public final class RegexDatabaseClient implements AutoCloseable, InternetRegexService {
 
     private static final Logger logger = LoggerFactory.getLogger(RegexDatabaseClient.class);
 
@@ -217,6 +218,7 @@ public final class RegexDatabaseClient implements AutoCloseable {
         return streamQuery(stmt, CandidateRegex.class);
     }
 
+    @Override
     public void setupInternetRegexDatabase() throws SQLException {
         executedBatchNamedQuery("create_internet_tables.sql");
     }
@@ -242,12 +244,14 @@ public final class RegexDatabaseClient implements AutoCloseable {
         stmt.close();
     }
 
+    @Override
     public Stream<CandidateRegex> loadInternetCandidates() throws SQLException {
         String queryText = loadNamedQuery("load_internet_regexes.sql").orElseThrow();
         return streamQuery(queryText, RawInternetRegex.class)
                 .map(internetRegex -> new CandidateRegex(internetRegex.id(), internetRegex.originId(), internetRegex.pattern()));
     }
 
+    @Override
     public void insertManyInternetTestSuiteResults(Map<Long, Set<RegexTestSuiteSolution>> solutions) throws SQLException {
         String queryText = loadNamedQuery("insert_internet_regex_solution.sql").orElseThrow();
         boolean oldAutoCommitStatus = connection.getAutoCommit();
@@ -266,6 +270,39 @@ public final class RegexDatabaseClient implements AutoCloseable {
         connection.commit();
         connection.setAutoCommit(oldAutoCommitStatus);
 
+        stmt.close();
+    }
+
+    public Stream<RawTestSuiteInternetRegexResultRow> loadTestSuiteInternetResults(long testSuiteId) throws SQLException {
+        String queryText = loadNamedQuery("load_internet_results_for_test_suite.sql").orElseThrow();
+        PreparedStatement stmt = connection.prepareStatement(queryText);
+        stmt.setLong(1, testSuiteId);
+
+        return streamQuery(stmt, RawTestSuiteInternetRegexResultRow.class);
+    }
+
+    @Override
+    public void updateManyInternetTestSuiteResults(Map<Long, Set<RelativeCoverageUpdate>> solutions) throws SQLException {
+        String queryText = loadNamedQuery("update_internet_test_suite_coverage.sql").orElseThrow();
+        boolean oldAutoCommitStatus = connection.getAutoCommit();
+        connection.setAutoCommit(false);
+
+        PreparedStatement stmt = connection.prepareStatement(queryText);
+
+        for (Map.Entry<Long, Set<RelativeCoverageUpdate>> entry : solutions.entrySet()) {
+            long testSuiteId = entry.getKey();
+            for (RelativeCoverageUpdate match : entry.getValue()) {
+                int partialStart = storeCoverageSequentialColumns(stmt, 1, match.fullCoverage());
+                storeCoverageSequentialColumns(stmt, partialStart, match.partialCoverage());
+                stmt.setLong(7, testSuiteId);
+                stmt.setLong(8, match.candidateRegexId());
+
+                stmt.execute();
+            }
+        }
+
+        connection.commit();
+        connection.setAutoCommit(oldAutoCommitStatus);
         stmt.close();
     }
 

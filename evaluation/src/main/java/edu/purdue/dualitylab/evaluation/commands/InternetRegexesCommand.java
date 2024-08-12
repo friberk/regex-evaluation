@@ -47,7 +47,16 @@ public class InternetRegexesCommand extends AbstractCommand<InternetRegexesArgs,
             logger.info("done");
         }
 
-        internetEvaluationService.evaluateInternetRegexes();
+        // if not just updates, then do everything
+        if (!args.isUpdatesOnly()) {
+            logger.info("Starting to pull internet regex test suite results...");
+            internetEvaluationService.evaluateInternetRegexes();
+        }
+
+        logger.info("updating internet regex coverage...");
+        internetEvaluationService.updateInternetRegexCoverages();
+
+        logger.info("done");
 
         return null;
     }

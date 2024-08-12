@@ -2,13 +2,16 @@ package edu.purdue.dualitylab.evaluation.internet;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import dk.brics.automaton.AutomatonCoverage;
 import edu.purdue.dualitylab.evaluation.TestSuiteService;
+import edu.purdue.dualitylab.evaluation.db.InternetRegexService;
 import edu.purdue.dualitylab.evaluation.db.RegexDatabaseClient;
 import edu.purdue.dualitylab.evaluation.evaluation.AutoCloseableExecutorService;
 import edu.purdue.dualitylab.evaluation.evaluation.CompiledRegexEntity;
+import edu.purdue.dualitylab.evaluation.evaluation.RelativeCoverageEvaluator;
 import edu.purdue.dualitylab.evaluation.evaluation.TestSuiteEvaluator;
-import edu.purdue.dualitylab.evaluation.model.CandidateRegex;
-import edu.purdue.dualitylab.evaluation.model.RegexTestSuiteSolution;
+import edu.purdue.dualitylab.evaluation.model.*;
+import edu.purdue.dualitylab.evaluation.util.CoverageUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -52,12 +55,14 @@ public final class InternetEvaluationService {
         }
     }
 
-    private final RegexDatabaseClient internetRegexDatabaseClient;
+    private record CoverageUpdateInput(RawTestSuiteInternetRegexResultRow row, AutomatonCoverage coverage) {}
+
+    private final InternetRegexService internetRegexService;
     private final TestSuiteService testSuiteService;
     private final ObjectMapper mapper;
 
     public InternetEvaluationService(RegexDatabaseClient internetRegexDatabaseClient, RegexDatabaseClient regexDatabaseClient) {
-        this.internetRegexDatabaseClient = internetRegexDatabaseClient;
+        this.internetRegexService = internetRegexDatabaseClient;
         this.testSuiteService = new TestSuiteService(regexDatabaseClient);
         this.mapper = new ObjectMapper();
     }
@@ -65,7 +70,7 @@ public final class InternetEvaluationService {
     public void evaluateInternetRegexes() throws SQLException, FileNotFoundException {
 
         // load internet regex candidates from database
-        Collection<CompiledRegexEntity> candidates = internetRegexDatabaseClient.loadInternetCandidates()
+        Collection<CompiledRegexEntity> candidates = internetRegexService.loadInternetCandidates()
                 .flatMap(candidateRegex -> CompiledRegexEntity.tryCompile(candidateRegex).stream())
                 .toList();
 
@@ -95,13 +100,41 @@ public final class InternetEvaluationService {
 
         // save contents to a file
         logger.info("saving results...");
-        internetRegexDatabaseClient.insertManyInternetTestSuiteResults(collectedTestSuites);
+        internetRegexService.insertManyInternetTestSuiteResults(collectedTestSuites);
         logger.info("done");
+    }
+
+    public void updateInternetRegexCoverages() throws SQLException {
+        // load test suites
+        List<RegexTestSuite> testSuites = testSuiteService.loadRegexTestSuites()
+                .toList();
+
+        logger.info("Starting to update relative internet regexes");
+        Map<Long, Set<RelativeCoverageUpdate>> coverages = new HashMap<>();
+        for (RegexTestSuite testSuite : testSuites) {
+            // load the results
+            Set<RelativeCoverageUpdate> inputs = internetRegexService.loadTestSuiteInternetResults(testSuite.id())
+                    .flatMap(row -> {
+                        Optional<AutomatonCoverage> coverage = CoverageUtils.createAutomatonCoverageOptional(row.internetRegexPattern());
+                        return coverage
+                                .map(cov -> new CoverageUpdateInput(row, cov))
+                                .stream();
+                    })
+                    .peek(input -> testSuite.strings().stream().map(RegexTestSuiteString::subject).forEach(input.coverage()::evaluate))
+                    .map(input -> new RelativeCoverageUpdate(testSuite.id(), input.row().internetRegexId(), input.coverage()))
+                    .collect(Collectors.toSet());
+
+            coverages.put(testSuite.id(), inputs);
+        }
+
+        // save everything
+        internetRegexService.updateManyInternetTestSuiteResults(coverages);
+        logger.info("done!");
     }
 
     public void loadCandidatesFromFileAndSave(File ndJsonPostsFile) throws FileNotFoundException, SQLException {
         logger.info("reading stackoverflow posts from {}", ndJsonPostsFile.getPath());
-        internetRegexDatabaseClient.setupInternetRegexDatabase();
+        internetRegexService.setupInternetRegexDatabase();
         Collection<StackOverflowRegexPost> regexPosts = loadStackOverflowPostsFromFile(ndJsonPostsFile)
                 .map(post -> {
                     Set<String> updatedUniquePatterns = post.patternStream()
@@ -112,7 +145,7 @@ public final class InternetEvaluationService {
                 })
                 .collect(Collectors.toSet());
 
-        internetRegexDatabaseClient.insertManyStackOverflowRegexes(regexPosts);
+        internetRegexService.insertManyStackOverflowRegexes(regexPosts);
     }
 
     private Stream<StackOverflowRegexPost> loadStackOverflowPostsFromFile(File stackOverflowPostsFile) throws FileNotFoundException {

@@ -6,6 +6,8 @@ import com.beust.jcommander.Parameters;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Objects;
+
 @Parameters(commandDescription = "Perform internet regex evaluation")
 public class InternetRegexesArgs {
 
@@ -13,6 +15,9 @@ public class InternetRegexesArgs {
 
     @Parameter(description = "Static extraction results database file", required = true)
     private String regexDatabaseFile;
+
+    @Parameter(names = {"-u", "--update-only"}, description = "Only compute updates")
+    private Boolean updateOnly;
 
     @Parameter(names = {"-f", "--internet-file"}, description = "NDJSON file containing StackOverflow regex posts")
     private String internetPostsFile;
@@ -61,5 +66,9 @@ public class InternetRegexesArgs {
 
     public String getStackOverflowPostsFilePath() {
         return internetPostsFile;
+    }
+
+    public boolean isUpdatesOnly() {
+        return Objects.requireNonNullElse(updateOnly, false);
     }
 }
