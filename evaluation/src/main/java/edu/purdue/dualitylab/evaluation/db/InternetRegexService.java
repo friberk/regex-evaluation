@@ -19,5 +19,5 @@ public interface InternetRegexService {
     Stream<CandidateRegex> loadInternetCandidates() throws SQLException;
     void insertManyInternetTestSuiteResults(Map<Long, Set<RegexTestSuiteSolution>> solutions) throws SQLException;
     Stream<RawTestSuiteInternetRegexResultRow> loadTestSuiteInternetResults(long testSuiteId) throws SQLException;
-    void updateManyInternetTestSuiteResults(Map<Long, Set<RelativeCoverageUpdate>> solutions) throws SQLException;
+    void updateManyInternetTestSuiteResults(Collection<RelativeCoverageUpdate> updates) throws SQLException;
 }

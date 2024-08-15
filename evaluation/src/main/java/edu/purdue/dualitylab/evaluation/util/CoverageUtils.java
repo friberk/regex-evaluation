@@ -39,13 +39,13 @@ public class CoverageUtils {
             RegExp regExp = new RegExp(pattern, RegExp.NONE);
             return regExp.toAutomaton();
         } catch (IllegalArgumentException exe) {
-            logger.warn("Failed to compile automaton /{}/: {}", pattern, exe.getMessage());
+            logger.debug("Failed to compile automaton /{}/: {}", pattern, exe.getMessage());
             throw exe;
         } catch (DfaBudgetExceededException exe) {
-            logger.warn("DFA budget exceeded for pattern /{}/: {}", pattern, exe.getMessage());
+            logger.debug("DFA budget exceeded for pattern /{}/: {}", pattern, exe.getMessage());
             throw exe;
         } catch (StackOverflowError so) {
-            logger.warn("StackOverflow while building automaton for pattern /{}/: {}", pattern, so.getMessage());
+            logger.debug("StackOverflow while building automaton for pattern /{}/: {}", pattern, so.getMessage());
             throw so;
         }
     }

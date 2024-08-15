@@ -282,23 +282,20 @@ public final class RegexDatabaseClient implements AutoCloseable, InternetRegexSe
     }
 
     @Override
-    public void updateManyInternetTestSuiteResults(Map<Long, Set<RelativeCoverageUpdate>> solutions) throws SQLException {
+    public void updateManyInternetTestSuiteResults(Collection<RelativeCoverageUpdate> updates) throws SQLException {
         String queryText = loadNamedQuery("update_internet_test_suite_coverage.sql").orElseThrow();
         boolean oldAutoCommitStatus = connection.getAutoCommit();
         connection.setAutoCommit(false);
 
         PreparedStatement stmt = connection.prepareStatement(queryText);
 
-        for (Map.Entry<Long, Set<RelativeCoverageUpdate>> entry : solutions.entrySet()) {
-            long testSuiteId = entry.getKey();
-            for (RelativeCoverageUpdate match : entry.getValue()) {
-                int partialStart = storeCoverageSequentialColumns(stmt, 1, match.fullCoverage());
-                storeCoverageSequentialColumns(stmt, partialStart, match.partialCoverage());
-                stmt.setLong(7, testSuiteId);
-                stmt.setLong(8, match.candidateRegexId());
+        for (RelativeCoverageUpdate match : updates) {
+            int partialStart = storeCoverageSequentialColumns(stmt, 1, match.fullCoverage());
+            storeCoverageSequentialColumns(stmt, partialStart, match.partialCoverage());
+            stmt.setLong(7, match.testSuiteId());
+            stmt.setLong(8, match.candidateRegexId());
 
-                stmt.execute();
-            }
+            stmt.execute();
         }
 
         connection.commit();

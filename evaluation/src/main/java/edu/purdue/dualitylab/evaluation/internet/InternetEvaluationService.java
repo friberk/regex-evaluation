@@ -109,25 +109,55 @@ public final class InternetEvaluationService {
         List<RegexTestSuite> testSuites = testSuiteService.loadRegexTestSuites()
                 .toList();
 
-        logger.info("Starting to update relative internet regexes");
-        Map<Long, Set<RelativeCoverageUpdate>> coverages = new HashMap<>();
-        for (RegexTestSuite testSuite : testSuites) {
-            // load the results
-            Set<RelativeCoverageUpdate> inputs = internetRegexService.loadTestSuiteInternetResults(testSuite.id())
-                    .flatMap(row -> {
-                        Optional<AutomatonCoverage> coverage = CoverageUtils.createAutomatonCoverageOptional(row.internetRegexPattern());
-                        return coverage
-                                .map(cov -> new CoverageUpdateInput(row, cov))
-                                .stream();
-                    })
-                    .peek(input -> testSuite.strings().stream().map(RegexTestSuiteString::subject).forEach(input.coverage()::evaluate))
-                    .map(input -> new RelativeCoverageUpdate(testSuite.id(), input.row().internetRegexId(), input.coverage()))
-                    .collect(Collectors.toSet());
+        List<RelativeCoverageUpdate> coverages = new ArrayList<>();
 
-            coverages.put(testSuite.id(), inputs);
+        try(
+                AutoCloseableExecutorService jobContext = new AutoCloseableExecutorService(Executors.newWorkStealingPool(Runtime.getRuntime().availableProcessors()))
+        ) {
+
+            ExecutorCompletionService<RelativeCoverageUpdate> jobCompletionService = new ExecutorCompletionService<>(jobContext);
+
+            logger.info("Starting to update relative internet regexes");
+
+            int testSuiteIndex = 0;
+            for (RegexTestSuite testSuite : testSuites) {
+                AtomicLong submittedJobs = new AtomicLong();
+                internetRegexService.loadTestSuiteInternetResults(testSuite.id())
+                        .flatMap(row -> {
+                            Optional<AutomatonCoverage> coverage = CoverageUtils.createAutomatonCoverageOptional(row.internetRegexPattern());
+                            return coverage
+                                    .map(cov -> new CoverageUpdateInput(row, cov))
+                                    .stream();
+                        })
+                        .forEach(input -> {
+                            submittedJobs.incrementAndGet();
+
+                            jobCompletionService.submit(() -> {
+                                // evaluate all strings on the coverage
+                                testSuite.strings().stream()
+                                        .map(RegexTestSuiteString::subject)
+                                        .forEach(input.coverage()::evaluate);
+
+                                // return an update
+                                return new RelativeCoverageUpdate(testSuite.id(), input.row().internetRegexId(), input.coverage());
+                            });
+                        });
+
+                for (long i = submittedJobs.get(); i > 0; i--) {
+                    Future<RelativeCoverageUpdate> future = jobCompletionService.take();
+                    RelativeCoverageUpdate update = future.get();
+                    coverages.add(update);
+                }
+
+                logger.info("finished processing test suite {}/{}", testSuiteIndex++, testSuites.size());
+            }
+
+        } catch (InterruptedException | ExecutionException e) {
+            throw new RuntimeException(e);
         }
 
         // save everything
+        logger.info("starting to update test suite results");
         internetRegexService.updateManyInternetTestSuiteResults(coverages);
         logger.info("done!");
     }
