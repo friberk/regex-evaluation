@@ -7,6 +7,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.sqlite.SQLiteConfig;
 
+/**
+ * Main entry point to the applications. Parses command line arguments, sets up some basic shared config, and then
+ * dispatches down to a specific sub-command.
+ */
 public class EvaluationMain {
 
     private final static Logger logger = LoggerFactory.getLogger(EvaluationMain.class);

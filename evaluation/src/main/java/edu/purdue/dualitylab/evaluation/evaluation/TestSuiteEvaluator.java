@@ -16,11 +16,18 @@ import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
 
 /**
- * Used to find regexes that works for a regex
+ * Used to find candidates regexes that works for a truth regex.
  */
 public class TestSuiteEvaluator implements Callable<Map<Long, Set<RegexTestSuiteSolution>>> {
     private static final Logger logger = LoggerFactory.getLogger(TestSuiteEvaluator.class);
 
+    /**
+     * The result of evaluating. Contains the potential candidate and if it's a full/partial match. If one of these
+     * operations times out, then it is indeterminate.
+     * @param entity The reuse candidate
+     * @param fullMatch If this entity full-matches the test suite
+     * @param partialMatch If this entity partial-matches the test suite
+     */
     private record EvaluationResult(
             CompiledRegexEntity entity,
             IndeterminateBoolean fullMatch,
@@ -44,18 +51,25 @@ public class TestSuiteEvaluator implements Callable<Map<Long, Set<RegexTestSuite
     private final Collection<CompiledRegexEntity> candidates;
 
     /**
+     * How many strings a regex must satisfy to be considered a candidate
+     */
+    private final double accuracyThreshold;
+
+    /**
      * Language approximation for truth language. Set of positive and negative strings created from the automaton
      */
     private final LanguageApproximation truthLanguageApprox;
 
-    public TestSuiteEvaluator(ExecutorService safeExecutionContext, RegexTestSuite testSuite, Collection<CompiledRegexEntity> candidates) {
+    public TestSuiteEvaluator(ExecutorService safeExecutionContext, RegexTestSuite testSuite, Collection<CompiledRegexEntity> candidates, double accuracyThreshold) {
         this.safeExecutionContext = safeExecutionContext;
         this.testSuite = testSuite;
         this.candidates = candidates;
+        // TODO this stuff needs to be added back in, but maybe it shouldn't happen in the constructor
         // Automaton truthAutomaton = new RegExp(testSuite.pattern()).toAutomaton(true);
         // SafeMatcher truthSafeMatcher = new SafeMatcher(Pattern.compile(testSuite.pattern()), safeExecutionContext);
         // this.truthLanguageApprox = LanguageApproximation.create(truthAutomaton, truthSafeMatcher);
         this.truthLanguageApprox = null;
+        this.accuracyThreshold = accuracyThreshold;
     }
 
     @Override
@@ -116,41 +130,43 @@ public class TestSuiteEvaluator implements Callable<Map<Long, Set<RegexTestSuite
 
         SafeMatcher safeMatcher = new SafeMatcher(entity.regexPattern(), this.safeExecutionContext);
 
+        int correctlyIdentified = 0;
+        int idx = 0;
+        int total = testSuite.strings().size();
         for (RegexTestSuiteString testSuiteString : testSuite.strings()) {
+
+            // check if we should keep going
+            int remaining = total - idx;
+            idx += 1;
+            if (noLongerAPossibleCandidate(correctlyIdentified, total, remaining)) {
+                return false;
+            }
 
             // determine if this regex partially matches the given string
             SafeMatcher.PartialMatchResult partialMatchResult;
             try {
-
                 logger.trace("evaluating regex {} on test suite string {} of test suite {}", entity.id(), testSuiteString.id(), testSuite.id());
                 Optional<SafeMatcher.PartialMatchResult> result = safeMatcher.partialMatch(testSuiteString.subject(), Duration.ofSeconds(2));
                 if (result.isEmpty()) {
                     logger.debug("Timed out while matching, not a candidate");
-                    return false;
+                    continue;
                 }
                 partialMatchResult = result.get();
             } catch (StackOverflowError exe) {
                 logger.debug("Could not evaluate regex {} on test suite string {} due to stack overflow", entity.id(), testSuiteString.id());
-                return false;
+                continue;
             }
 
-            if (!testSuiteString.matchStatus().partialMatch()) {
-                if (partialMatchResult.matchResult() == SafeMatcher.MatchResult.MATCH) {
-                    // if it should not have matched but did,
-                    logger.debug("Regex {} matches negative test suite string {} of test suite {}", entity.id(), testSuiteString.id(), testSuite.id());
-                    return false;
-                } else {
-                    // we correctly identified an incorrect match. Go to the next iteration
-                    continue;
-                }
+            if (!testSuiteString.matchStatus().partialMatch() && partialMatchResult.matchResult() != SafeMatcher.MatchResult.MATCH) {
+                correctlyIdentified++;
+                continue;
             }
 
             // at this point, the test suite string MUST be a positive partial match string
 
             if (partialMatchResult.matchResult() == SafeMatcher.MatchResult.NOT_MATCH) {
                 // if it should not have matched but did,
-                logger.debug("Regex {} does not match positive test suite string {} of test suite {}", entity.id(), testSuiteString.id(), testSuite.id());
-                return false;
+                continue;
             }
 
             int actualStart = partialMatchResult.start();
@@ -158,15 +174,16 @@ public class TestSuiteEvaluator implements Callable<Map<Long, Set<RegexTestSuite
 
             if (actualStart != testSuiteString.matchStatus().partialMatchStartIdx() || actualEnd != testSuiteString.matchStatus().partialMatchEndIdx()) {
                 logger.debug("Regex {} did not pull out the correct {} of test suite {}", entity.id(), testSuiteString.id(), testSuite.id());
-                return false;
+                continue;
             }
 
             // if we got to here, then we correctly identified the same substring
+            correctlyIdentified++;
         }
 
         // if we correctly identify all strings, accept
-        logger.debug("Regex {} satisfies test suite {}", entity.id(), testSuite.id());
-        return true;
+        double computedAccuracy = correctlyIdentified / (double) total;
+        return computedAccuracy >= this.accuracyThreshold;
     }
 
     private boolean regexSatisfiesTestSuiteFullMatch(CompiledRegexEntity entity) {
@@ -175,40 +192,49 @@ public class TestSuiteEvaluator implements Callable<Map<Long, Set<RegexTestSuite
 
         SafeMatcher safeMatcher = new SafeMatcher(entity.regexPattern(), this.safeExecutionContext);
 
+        int correctlyIdentified = 0;
+        int idx = 0;
+        int totalStrings = testSuite.strings().size();
         for (RegexTestSuiteString testSuiteString : testSuite.strings()) {
+
+            // check if we should keep going
+            int remaining = totalStrings - idx;
+            idx += 1;
+            if (noLongerAPossibleCandidate(correctlyIdentified, totalStrings, remaining)) {
+                return false;
+            }
 
             // determine if this regex partially matches the given string
             boolean fullMatches = false;
             try {
-
                 logger.trace("evaluating regex {} on test suite string {} of test suite {}", entity.id(), testSuiteString.id(), testSuite.id());
                 SafeMatcher.MatchResult result = safeMatcher.match(testSuiteString.subject(), SafeMatcher.MatchMode.FULL, Duration.ofSeconds(2));
                 switch (result) {
                     case MATCH -> fullMatches = true;
                     case NOT_MATCH -> fullMatches = false;
                     case TIMEOUT -> {
-                        logger.debug("Timed out while matching, not a candidate");
-                        return false;
+                        continue;
                     }
                 }
             } catch (StackOverflowError exe) {
                 logger.debug("Could not evaluate regex {} on test suite string {} due to stack overflow", entity.id(), testSuiteString.id());
-                return false;
+                continue;
             }
 
-            if (testSuiteString.matchStatus().fullMatch() && !fullMatches) {
-                // if it should have matched but didn't, reject
-                logger.debug("Regex {} does not match positive test suite string {} of test suite {}", entity.id(), testSuiteString.id(), testSuite.id());
-                return false;
-            } else if (!testSuiteString.matchStatus().fullMatch() && fullMatches) {
-                // if it should not have matched but did,
-                logger.debug("Regex {} matches negative test suite string {} of test suite {}", entity.id(), testSuiteString.id(), testSuite.id());
-                return false;
+            if (testSuiteString.matchStatus().fullMatch() == fullMatches) {
+                correctlyIdentified++;
             }
         }
 
-        // if we correctly identify all strings, accept
-        logger.debug("Regex {} satisfies test suite {}", entity.id(), testSuite.id());
-        return true;
+        double computedAccuracy = correctlyIdentified / (double) totalStrings;
+
+        return computedAccuracy >= this.accuracyThreshold;
+    }
+
+    private boolean noLongerAPossibleCandidate(int currentCorrect, int total, int remaining) {
+        int ideallyCorrect = currentCorrect + remaining;
+        double bestPossibleAccuracy = ideallyCorrect / (double) total;
+
+        return !(bestPossibleAccuracy >= this.accuracyThreshold);
     }
 }

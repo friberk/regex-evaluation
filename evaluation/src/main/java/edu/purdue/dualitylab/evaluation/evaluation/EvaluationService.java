@@ -4,7 +4,6 @@ import dk.brics.automaton.Automaton;
 import edu.purdue.dualitylab.evaluation.TestSuiteService;
 import edu.purdue.dualitylab.evaluation.db.RegexDatabaseClient;
 import edu.purdue.dualitylab.evaluation.distance.DistanceMeasure;
-import edu.purdue.dualitylab.evaluation.distance.IntersectionOverUnionDistance;
 import edu.purdue.dualitylab.evaluation.model.RegexTestSuite;
 import edu.purdue.dualitylab.evaluation.model.RegexTestSuiteSolution;
 import edu.purdue.dualitylab.evaluation.model.RelativeCoverageUpdate;
@@ -27,10 +26,6 @@ public class EvaluationService {
     private final TestSuiteService testSuiteService;
 
     public EvaluationService(RegexDatabaseClient databaseClient) {
-        this(databaseClient, new IntersectionOverUnionDistance());
-    }
-
-    public EvaluationService(RegexDatabaseClient databaseClient, DistanceMeasure<Automaton> distanceMeasure) {
         this.testSuiteService = new TestSuiteService(databaseClient);
         this.databaseClient = databaseClient;
     }
@@ -39,11 +34,19 @@ public class EvaluationService {
 
         databaseClient.setupResultsTable();
 
+        /*
+        The safe execution context is for safely matching a regex with a time constraint. Essentially, we run the
+        matcher in a separate thread. That way, we can cancel it if it takes too long. We can also allow multiple
+        evaluations to happen at the same time.
+
+        The job executor is used to parallelize the evaluation process.
+         */
         try (AutoCloseableExecutorService safeExecutionContext = new AutoCloseableExecutorService(Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors()));
              AutoCloseableExecutorService jobExecutor = new AutoCloseableExecutorService(Executors.newWorkStealingPool(Runtime.getRuntime().availableProcessors()))) {
 
             CompletionService<Map<Long, Set<RegexTestSuiteSolution>>> jobExecutionContext = new ExecutorCompletionService<>(jobExecutor);
 
+            // load test suites
             Map<Long, List<RegexTestSuite>> projectTestSuites = testSuiteService.loadRegexTestSuites()
                     .collect(Collectors.groupingBy(RegexTestSuite::projectId));
 
@@ -61,8 +64,9 @@ public class EvaluationService {
                         .flatMap(candidate -> CompiledRegexEntity.tryCompile(candidate).stream())
                         .toList();
 
+                // submit test suite evaluator jobs
                 for (RegexTestSuite testSuite : testSuites) {
-                    jobExecutionContext.submit(new TestSuiteEvaluator(safeExecutionContext, testSuite, candidateEntities));
+                    jobExecutionContext.submit(new TestSuiteEvaluator(safeExecutionContext, testSuite, candidateEntities, 1.00));
                 }
 
                 logger.info("Waiting on test suites...");

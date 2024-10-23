@@ -9,7 +9,21 @@ import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Optional;
 
+/**
+ * Magic for mapping rows to models.
+ */
 public class EntityMapper {
+    /**
+     * Maps a row to an entity
+     * @param row The row to map
+     * @param clazz The type of the resulting model
+     * @return The mapped entity
+     * @param <T> The row type
+     * @throws SQLException
+     * @throws InvocationTargetException
+     * @throws InstantiationException
+     * @throws IllegalAccessException
+     */
     public static <T> T toEntity(ResultSet row, Class<T> clazz) throws SQLException, InvocationTargetException, InstantiationException, IllegalAccessException {
         Constructor<?> constructor = selectConstructor(clazz.getConstructors()).orElseThrow();
         Parameter[] parameters = constructor.getParameters();

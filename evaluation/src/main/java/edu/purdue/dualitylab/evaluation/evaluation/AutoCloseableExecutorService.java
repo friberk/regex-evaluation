@@ -8,6 +8,11 @@ import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.*;
 
+/**
+ * Basic executor service that uses the AutoClosable interface for automatically shutting down
+ * the wrapped executor service. The shutdown policy is to try to gracefully shutdown. If graceful
+ * shutdown fails, force shutdown.
+ */
 public class AutoCloseableExecutorService implements ExecutorService, AutoCloseable {
 
 

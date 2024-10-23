@@ -3,7 +3,6 @@ package edu.purdue.dualitylab.evaluation.commands;
 import edu.purdue.dualitylab.evaluation.args.RootArgs;
 import edu.purdue.dualitylab.evaluation.args.UpdateDistancesArgs;
 import edu.purdue.dualitylab.evaluation.db.RegexDatabaseClient;
-import edu.purdue.dualitylab.evaluation.distance.OverhangSizeDistance;
 import edu.purdue.dualitylab.evaluation.distance.UpdateDistancesService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,6 +13,9 @@ import java.sql.DriverManager;
 import java.util.function.BiPredicate;
 import java.util.function.Predicate;
 
+/**
+ * Updates distances for reuse candidates for all test suites. This should be run after evaluating.
+ */
 public class UpdateDistancesCommand extends AbstractCommand<UpdateDistancesArgs, Void> {
 
     private static final Logger logger = LoggerFactory.getLogger(UpdateDistancesCommand.class);
@@ -55,10 +57,10 @@ public class UpdateDistancesCommand extends AbstractCommand<UpdateDistancesArgs,
         RegexDatabaseClient regexDatabaseClient = new RegexDatabaseClient(connection);
         logger.info("Successfully connected to database");
 
-        UpdateDistancesService updateDistancesService = new UpdateDistancesService(regexDatabaseClient, new OverhangSizeDistance(), createRegexChecker(args), createRegexRelativeChecker(args));
+        UpdateDistancesService updateDistancesService = new UpdateDistancesService(regexDatabaseClient, createRegexChecker(args), createRegexRelativeChecker(args));
 
         logger.info("beginning to update distances...");
-        updateDistancesService.computeAndInsertDistanceUpdateRecordsV2();
+        updateDistancesService.computeAndInsertDistanceUpdateRecordsV3(args.computeAstDistances(), args.computeSemanticDistances());
         logger.info("finished to update distances");
 
         return null;

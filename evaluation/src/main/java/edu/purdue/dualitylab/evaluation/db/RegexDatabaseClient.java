@@ -14,6 +14,10 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
+/**
+ * General client for interacting with the regex database. This class should contain all database operations that
+ * are included in the project.
+ */
 public final class RegexDatabaseClient implements AutoCloseable, InternetRegexService {
 
     private static final Logger logger = LoggerFactory.getLogger(RegexDatabaseClient.class);
@@ -308,6 +312,14 @@ public final class RegexDatabaseClient implements AutoCloseable, InternetRegexSe
         connection.close();
     }
 
+    /**
+     * Executes query text and streams the rows.
+     * @param queryText The query text to execute
+     * @param clazz The row model type
+     * @return Stream of rows
+     * @param <T> The row type
+     * @throws SQLException
+     */
     private <T> Stream<T> streamQuery(String queryText, Class<T> clazz) throws SQLException {
         UncheckedCloseable closable = null;
         try {
@@ -329,6 +341,15 @@ public final class RegexDatabaseClient implements AutoCloseable, InternetRegexSe
         }
     }
 
+    /**
+     * Takes a prepared statement, executes it, and streams the resulting rows. Each row is mapped into the provided
+     * clazz type with the {@link edu.purdue.dualitylab.evaluation.db.EntityMapper} class.
+     * @param stmt The statement to execute
+     * @param clazz The row entity type.
+     * @return A stream of rows
+     * @param <T> The row entity type
+     * @throws SQLException If there's a SQL issue.
+     */
     private <T> Stream<T> streamQuery(PreparedStatement stmt, Class<T> clazz) throws SQLException {
         UncheckedCloseable closable = null;
         try {
@@ -349,6 +370,11 @@ public final class RegexDatabaseClient implements AutoCloseable, InternetRegexSe
         }
     }
 
+    /**
+     * Execute a single named query without preparing the statement at all
+     * @param namedQuery The name of the file that contains the query
+     * @throws SQLException If there's a SQL issue
+     */
     private void executeNamedQuery(String namedQuery) throws SQLException {
         String queryText = loadNamedQuery(namedQuery).orElseThrow();
         Statement stmt = connection.createStatement();
@@ -356,6 +382,12 @@ public final class RegexDatabaseClient implements AutoCloseable, InternetRegexSe
         stmt.close();
     }
 
+    /**
+     * Executes a named query that contains multiple statements within. These contained SQL statements should be
+     * ';' delimited
+     * @param namedQuery The query file name to execute
+     * @throws SQLException If there's a SQL issue
+     */
     private void executedBatchNamedQuery(String namedQuery) throws SQLException {
         String queryText = loadNamedQuery(namedQuery).orElseThrow();
 
@@ -376,6 +408,12 @@ public final class RegexDatabaseClient implements AutoCloseable, InternetRegexSe
         stmt.close();
     }
 
+    /**
+     * Loads queries from the resource/sql directory. Basically, provide the file name, and this will attempt to load
+     * the resource.
+     * @param queryName The filename of the query you want to load
+     * @return The query's text contents if the file was found, or empty optional if the file doesn't exist.
+     */
     private Optional<String> loadNamedQuery(String queryName) {
         String queryResourceName = String.format("sql/%s", queryName);
         InputStream queryInputStream = queryLoader.getResourceAsStream(queryResourceName);
@@ -396,6 +434,13 @@ public final class RegexDatabaseClient implements AutoCloseable, InternetRegexSe
         return Optional.of(writer.toString());
     }
 
+    /**
+     * Write a null value to the given column if the value is NaN or infinite.
+     * @param stmt The statement for which we want to set the column
+     * @param columnIdx The column index to set
+     * @param value The double value to write. This value can be NaN or infinite
+     * @throws SQLException Throws if there's a sql issue
+     */
     private static void storeDoubleOrNullOnNonFinite(PreparedStatement stmt, int columnIdx, double value) throws SQLException {
         if (Double.isFinite(value)) {
             stmt.setDouble(columnIdx, value);
@@ -404,6 +449,14 @@ public final class RegexDatabaseClient implements AutoCloseable, InternetRegexSe
         }
     }
 
+    /**
+     * Write an indeterminate boolean. If the value of the boolean is indeterminate, store null. Otherwise, store the
+     * value of the boolean
+     * @param stmt The statement of which we want to set the column
+     * @param columnIndex The column index we want to set
+     * @param ib The value
+     * @throws SQLException Throws if there's an issue with sql
+     */
     private static void storeIndeterminateBoolean(PreparedStatement stmt, int columnIndex, IndeterminateBoolean ib) throws SQLException {
         Optional<Boolean> optBool = ib.toOptionalBoolean();
         if (optBool.isPresent()) {
@@ -413,6 +466,15 @@ public final class RegexDatabaseClient implements AutoCloseable, InternetRegexSe
         }
     }
 
+    /**
+     * Convenience function for writing coverage to a database table. Coverage columns are typically adjacent, so this
+     * simply perform a sequence of inserts that inserts the `coverageSummary` values.
+     * @param stmt The statement to insert to
+     * @param startingColumnIndex The column index of the node coverage column
+     * @param coverageSummary The coverage summary to write
+     * @return The next column after writing the coverage info. This is basically `startingColumnIdx + 3`
+     * @throws SQLException If there's a SQL issue
+     */
     private static int storeCoverageSequentialColumns(PreparedStatement stmt, int startingColumnIndex, AutomatonCoverage.VisitationInfoSummary coverageSummary) throws SQLException {
         storeDoubleOrNullOnNonFinite(stmt, startingColumnIndex, coverageSummary.getNodeCoverage());
         storeDoubleOrNullOnNonFinite(stmt, startingColumnIndex + 1, coverageSummary.getEdgeCoverage());

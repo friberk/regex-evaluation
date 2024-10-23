@@ -14,11 +14,11 @@ public record LanguageApproximation(
         Set<StringWithSubMatch> positive,
         Set<String> negative
 ) {
-    public static LanguageApproximation create(Automaton regexAutomaton, SafeMatcher safeMatcher) throws IllegalArgumentException {
-        Set<StringWithSubMatch> positive = GenerateStrings.generateStrings(regexAutomaton, 3, true).stream()
+    public static LanguageApproximation create(Automaton regexAutomaton, SafeMatcher safeMatcher, GenerateStrings.GenerateStringsConfiguration config) throws IllegalArgumentException {
+        Set<StringWithSubMatch> positive = GenerateStrings.generateStrings(regexAutomaton, config.withGeneratePositiveStrings(true)).stream()
                 .flatMap(positiveString -> StringWithSubMatch.create(positiveString, safeMatcher).stream())
                 .collect(Collectors.toSet());
-        Set<String> negative = GenerateStrings.generateStrings(regexAutomaton, 3, false);
+        Set<String> negative = GenerateStrings.generateStrings(regexAutomaton, config.withGeneratePositiveStrings(false));
         return new LanguageApproximation(positive, negative);
     }
 

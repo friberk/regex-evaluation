@@ -1,5 +1,8 @@
 package edu.purdue.dualitylab.evaluation.safematch;
 
+/**
+ * Allows us to interrupt a thread while evaluating a regex on the given character sequence.
+ */
 class InterruptibleCharSequence implements CharSequence {
     CharSequence inner;
     // public long counter = 0;

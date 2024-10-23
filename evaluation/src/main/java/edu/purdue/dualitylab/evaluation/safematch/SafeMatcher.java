@@ -8,13 +8,24 @@ import java.util.concurrent.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+/**
+ * The safe matcher is responsible for safely evaluating a string on a regex. It performs actual match operations on
+ * a separate thread and allows us to time out or otherwise cancel the execution. It takes an executor service to
+ * perform our operations in
+ */
 public class SafeMatcher {
 
+    /**
+     * How we are matching: full or partial match
+     */
     public enum MatchMode {
         FULL,
         PARTIAL,
     }
 
+    /**
+     * Represents the result of the match operations. Can either match, not match, or timeout.
+     */
     public enum MatchResult {
         MATCH,
         NOT_MATCH,
@@ -33,6 +44,12 @@ public class SafeMatcher {
         }
     }
 
+    /**
+     * Determines if it's a partial match and also populates start/end with the specific substring that matches.
+     * @param matchResult result of the operation
+     * @param start sub-match start
+     * @param end sub-match end
+     */
     public record PartialMatchResult(
             MatchResult matchResult,
             int start,
@@ -45,14 +62,23 @@ public class SafeMatcher {
 
     /**
      * Take a pattern and produce a safe, timeout-able matcher
-     * @param pattern
-     * @param executorService
+     * @param pattern The pattern we want to use
+     * @param safeMatchContext The execution context to evaluate this regex in
      */
-    public SafeMatcher(Pattern pattern, ExecutorService executorService) {
+    public SafeMatcher(Pattern pattern, ExecutorService safeMatchContext) {
         this.pattern = pattern;
-        this.executorService = executorService;
+        this.executorService = safeMatchContext;
     }
 
+    /**
+     * Determine this safe matcher matches the given substring with sub match. If the mode is full match, then the whole
+     * string is evaluated. Otherwise, a sub-match is found and checked if it is the same as the truth.
+     *
+     * @param charSequence content to match
+     * @param mode How to match
+     * @param timeout Amount of time before timeout
+     * @return Match result
+     */
     public MatchResult match(CharSequence charSequence, MatchMode mode, Duration timeout) {
         Future<Boolean> matchResult = executorService.submit(matchTask(charSequence, mode));
 
@@ -97,6 +123,12 @@ public class SafeMatcher {
         }
     }
 
+    /**
+     * Perform specifically a partial match operation. This will extract the potential matching submatch
+     * @param charSequence The string to evaluate
+     * @param timeout How long this can run for
+     * @return The partial match result, or empty if timed out.
+     */
     public Optional<PartialMatchResult> partialMatch(CharSequence charSequence, Duration timeout) {
         Future<PartialMatchResult> matchResult = executorService.submit(partialMatchTask(charSequence));
 

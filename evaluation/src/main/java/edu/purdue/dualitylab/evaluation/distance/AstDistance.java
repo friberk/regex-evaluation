@@ -13,9 +13,12 @@ import org.antlr.v4.runtime.ParserRuleContext;
 import java.io.IOException;
 import java.util.*;
 
+/**
+ * Compute the AST edit distance between strings.
+ */
 public class AstDistance {
 
-    public static Tree buildTree(String regex) throws IOException {
+    public static Tree buildTree(String regex) {
         regex = regex.trim();
         PCRELexer lexer = new PCRELexer(CharStreams.fromString(regex));
         TokenStream tokens = new CommonTokenStream(lexer);
@@ -26,12 +29,12 @@ public class AstDistance {
         return new Tree(rootNode);
     }
 
-    public static int editDistance(String regex1, String regex2) throws IOException {
+    public static int editDistance(String regex1, String regex2) {
         Tree regexTree1 = buildTree(regex1);
         return editDistance(regexTree1, regex2);
     }
 
-    public static int editDistance(Tree truthTree, String candidatePattern) throws IOException {
+    public static int editDistance(Tree truthTree, String candidatePattern) {
         Tree candidateTree = buildTree(candidatePattern);
         return editDistance(truthTree, candidateTree);
     }

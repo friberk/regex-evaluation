@@ -28,6 +28,9 @@ import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+/**
+ * This command allows you to manually run a query. Use this for debugging purposes.
+ */
 public class ManualQueryCommand extends AbstractCommand<ManualQueryArgs, Void> {
 
     private static final Logger logger = LoggerFactory.getLogger(LoggerFactory.class);

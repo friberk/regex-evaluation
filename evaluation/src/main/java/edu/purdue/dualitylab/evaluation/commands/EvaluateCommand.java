@@ -11,6 +11,14 @@ import org.sqlite.SQLiteConfig;
 import java.sql.Connection;
 import java.sql.DriverManager;
 
+/**
+ * The evaluate command performs the evaluation for our reuse-by-example database. It is responsible for finding reuse
+ * candidates for each test suite. Additionally, it computes coverages. You should run `pull-test-suites` before
+ * running this command.
+ * <br>
+ * Optionally, you can just compute relative coverages for each test suite with the previously computed reuse
+ * candidates.
+ */
 public class EvaluateCommand extends AbstractCommand<EvaluateArgs, Void> {
 
     private static final Logger logger = LoggerFactory.getLogger(EvaluateCommand.class);

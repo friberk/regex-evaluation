@@ -84,7 +84,8 @@ public final class InternetEvaluationService {
             // submit all test suites for evaluation on all candidate regexes
             AtomicLong jobCount = new AtomicLong(0);
             testSuiteService.loadRegexTestSuites()
-                    .map(testSuite -> new TestSuiteEvaluator(safeExecutionContext, testSuite, candidates))
+                    // TODO configure the accuracy
+                    .map(testSuite -> new TestSuiteEvaluator(safeExecutionContext, testSuite, candidates, 1.0))
                     .peek((job) -> jobCount.getAndIncrement())
                     .forEach(jobExecutionContext::submit);
 

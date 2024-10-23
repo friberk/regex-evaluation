@@ -9,7 +9,7 @@ plugins {
 }
 
 group = "edu.purdue.dualitylab"
-version = "0.6.2"
+version = "0.6.3"
 
 repositories {
     mavenCentral()
@@ -55,6 +55,7 @@ docker {
     javaApplication {
         baseImage.set("amazoncorretto:22-jdk")
         user.set("charlie")
+        // TODO this will need to be updated to your own Docker hub account.
         images.set(setOf("softwaresale/regex-evaluator:$version"))
         jvmArgs.set(listOf("-Xms50g", "-Xmx125g"))
     }

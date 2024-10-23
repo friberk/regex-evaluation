@@ -6,6 +6,13 @@ import java.util.Optional;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
+/**
+ * Represents a compiled regex entity. We keep the regex and project id, and also keep the compiled Pattern for the
+ * pattern.
+ * @param id The regex's unique id
+ * @param projectId The project that originated this regex
+ * @param regexPattern The compiled regex.
+ */
 public record CompiledRegexEntity(
         long id,
         long projectId,

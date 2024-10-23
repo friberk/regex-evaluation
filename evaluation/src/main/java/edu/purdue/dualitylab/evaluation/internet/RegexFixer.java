@@ -3,6 +3,9 @@ package edu.purdue.dualitylab.evaluation.internet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+/**
+ * Fixes up internet regexes by stripping away function calls, flags, and more.
+ */
 public class RegexFixer {
 
     private static final Pattern tailingSlashDetector = Pattern.compile("/[dgimsuvy]*$");

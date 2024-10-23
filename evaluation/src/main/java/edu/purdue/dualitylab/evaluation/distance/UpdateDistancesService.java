@@ -1,212 +1,195 @@
 package edu.purdue.dualitylab.evaluation.distance;
 
 import dk.brics.automaton.Automaton;
-import dk.brics.automaton.RegExp;
+import dk.brics.automaton.GenerateStrings;
+import edu.purdue.dualitylab.evaluation.TestSuiteService;
 import edu.purdue.dualitylab.evaluation.db.RegexDatabaseClient;
 import edu.purdue.dualitylab.evaluation.distance.ast.Tree;
-import edu.purdue.dualitylab.evaluation.model.DistanceUpdateRecord;
-import edu.purdue.dualitylab.evaluation.model.RawTestSuiteResultRow;
-import edu.purdue.dualitylab.evaluation.util.cache.LRUBoundedCache;
-import edu.purdue.dualitylab.evaluation.util.Pair;
+import edu.purdue.dualitylab.evaluation.evaluation.AutoCloseableExecutorService;
+import edu.purdue.dualitylab.evaluation.model.*;
+import edu.purdue.dualitylab.evaluation.safematch.SafeMatcher;
+import edu.purdue.dualitylab.evaluation.util.CoverageUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
 import java.sql.SQLException;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.OptionalInt;
+import java.util.*;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiPredicate;
 import java.util.function.Predicate;
+import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 import java.util.stream.Collectors;
 
+/**
+ * Service responsible for compute distances between regexes
+ */
 public class UpdateDistancesService {
 
     private static final Logger logger = LoggerFactory.getLogger(UpdateDistancesService.class);
 
-    private record DistanceInput(
-            RawTestSuiteResultRow rawRow,
-            Tree truthTree,
-            Tree reuseTree,
-            Integer cachedScore
-    ) {
-        public DistanceInput(RawTestSuiteResultRow rawRow,
-                             Tree truthTree,
-                             Tree reuseTree) {
-            this(rawRow, truthTree, reuseTree, -1);
-        }
+    /**
+     * Basic callable to actually computes the distances between a truth regex and the candidates
+     * @param candidateRow The candidate row
+     * @param truthTree The AST of the truth regex
+     * @param truthLanguageApprox The language approximation of the truth (for semantic distance)
+     * @param safeMatchContext Safe match context
+     */
+    private record DistanceCalculatorTask(RawTestSuiteResultRow candidateRow,
+                                          Tree truthTree,
+                                          LanguageApproximation truthLanguageApprox,
+                                          ExecutorService safeMatchContext) implements Callable<Optional<DistanceUpdateRecord>> {
 
-        public static DistanceInput useCachedScore(RawTestSuiteResultRow row, int score) {
-            return new DistanceInput(row, null, null, score);
+        @Override
+        public Optional<DistanceUpdateRecord> call() throws Exception {
+            // first, build out the stuff we need for the candidate
+            Optional<Tree> candidateTree = buildTree(candidateRow().candidateRegex());
+
+            // compile the regex
+            Pattern candidatePattern = null;
+            try {
+                candidatePattern = Pattern.compile(candidateRow().candidateRegex());
+            } catch (PatternSyntaxException exe) {
+            }
+
+            // compute the AST distance
+            int editDistance = -1;
+            if (truthTree != null && candidateTree.isPresent()) {
+                try {
+                    editDistance = AstDistance.editDistance(truthTree(), candidateTree.get());
+                } catch (ArrayIndexOutOfBoundsException ignored) {
+                }
+            }
+
+            // compute the semantic distance
+            double semanticDistance = Double.NaN;
+            if (truthLanguageApprox != null && candidatePattern != null) {
+                semanticDistance = truthLanguageApprox.eSimilarity(candidatePattern, SafeMatcher.MatchMode.FULL, safeMatchContext());
+            }
+
+            // only report a value if we actually have something to update
+            if (editDistance == -1 && Double.isNaN(semanticDistance)) {
+                return Optional.empty();
+            }
+
+            return Optional.of(new DistanceUpdateRecord(candidateRow.testSuiteId(), candidateRow().candidateRegexId(), editDistance, semanticDistance));
         }
     }
 
     private final RegexDatabaseClient databaseClient;
-    private final DistanceMeasure<Automaton> automatonDistanceMeasure;
+    private final TestSuiteService testSuiteService;
+    /// Checks if we should compute the distance for any given regex. e.g., a regex is too big to compute AST distance
     private final Predicate<String> regexValidityChecker;
+    /// Checks if we should compute distance between a pair of regexes. e.g., the regexes are of crazy different sizes.
     private final BiPredicate<String, String> relativeRegexValidityChecker;
-    // have two difference caches because the truth regex cache can be much smaller because we should process left whole
-    // chunk of the truth regex at the same time
-    private final LRUBoundedCache<String, Optional<Tree>> truthRegexTreeCache;
-    private final LRUBoundedCache<String, Optional<Tree>> candidateRegexTreeCache;
-    private final LRUBoundedCache<Pair<Long, Long>, Integer> cachedEditDistances;
+    /// have two difference caches because the truth regex cache can be much smaller because we should process left whole
+    /// chunk of the truth regex at the same time
+    private final GenerateStrings.GenerateStringsConfiguration generateStringsConfiguration;
 
-    public UpdateDistancesService(RegexDatabaseClient regexDatabaseClient, DistanceMeasure<Automaton> automatonDistanceMeasure, Predicate<String> regexValidityChecker, BiPredicate<String, String> relativeRegexValidityChecker) {
+    public UpdateDistancesService(RegexDatabaseClient regexDatabaseClient, Predicate<String> regexValidityChecker, BiPredicate<String, String> relativeRegexValidityChecker) {
         this.databaseClient = regexDatabaseClient;
-        this.automatonDistanceMeasure = automatonDistanceMeasure;
+        this.testSuiteService = new TestSuiteService(regexDatabaseClient);
         this.regexValidityChecker = regexValidityChecker;
         this.relativeRegexValidityChecker = relativeRegexValidityChecker;
-        this.candidateRegexTreeCache = new LRUBoundedCache<>(300);
-        this.truthRegexTreeCache = new LRUBoundedCache<>(10);
-        this.cachedEditDistances = new LRUBoundedCache<>(100);
+        this.generateStringsConfiguration = new GenerateStrings.GenerateStringsConfiguration(true, 3, 5);
     }
 
-    public void computeAndInsertDistanceUpdateRecordsV2() throws SQLException {
-        // first, add the columns if needed
-        logger.info("Adding distance columns to result table schema if needed");
-        try {
-            databaseClient.addDistanceColumnsToResults();
-        } catch (SQLException e) {
-            logger.warn("Error encountered while altering tables", e);
-            logger.warn("continuing anyways...");
-        }
+    public void computeAndInsertDistanceUpdateRecordsV3() throws SQLException {
+        computeAndInsertDistanceUpdateRecordsV3(true, true);
+    }
 
-        List<DistanceUpdateRecord> records = databaseClient.loadRawTestSuiteResultsForDistanceUpdate()
-                .flatMap(row -> {
-                    // if we have computed this score already, use the cached version
-                    OptionalInt cachedScore = hasCachedScore(row);
-                    if (cachedScore.isPresent()) {
-                        return Optional.of(DistanceInput.useCachedScore(row, cachedScore.getAsInt())).stream();
-                    }
+    public void computeAndInsertDistanceUpdateRecordsV3(boolean computeAstDistance, boolean computeSemanticDistance) throws SQLException {
 
-                    // check if regexes are too long
-                    if (!regexValidityChecker.test(row.truthRegex())) {
-                        logger.info("regex /{}/ did not pass checks", row.truthRegex());
-                        return Optional.<DistanceInput>empty().stream();
-                    }
-
-                    if (!regexValidityChecker.test(row.candidateRegex())) {
-                        logger.info("regex /{}/ did not pass checks", row.candidateRegex());
-                        return Optional.<DistanceInput>empty().stream();
-                    }
-
-                    if (!relativeRegexValidityChecker.test(row.truthRegex(), row.candidateRegex())) {
-                        logger.info("relative regex check did not pass checks");
-                        return Optional.<DistanceInput>empty().stream();
-                    }
-
-                    Optional<Tree> truthRegexTree = truthRegexTreeCache.get(row.truthRegex());
-                    if (truthRegexTree == null) {
-                        logger.info("regex /{}/ was not cached, building tree...", row.truthRegex());
-                        // the item has not been cached, so we need to build and store it
-                        truthRegexTree = buildTree(row.truthRegex());
-                        truthRegexTreeCache.put(row.truthRegex(), truthRegexTree);
-                        candidateRegexTreeCache.put(row.truthRegex(), truthRegexTree);
-                        logger.info("successfully built and cached tree");
-                    } else {
-                        logger.info("regex /{}/ was already cached", row.truthRegex());
-                    }
-
-                    // now that it has been built, we can interpret
-                    if (truthRegexTree.isEmpty()) {
-                        logger.warn("truth tree is empty for {}, so skipping row for test suite {}", row.truthRegexId(), row.testSuiteId());
-                        // this pattern could not be built, so we should skip
-                        return Optional.<DistanceInput>empty().stream();
-                    }
-
-                    Optional<Tree> candidateRegexTree = candidateRegexTreeCache.get(row.candidateRegex());
-                    if (candidateRegexTree == null) {
-                        logger.info("regex /{}/ was not cached, building tree...", row.candidateRegex());
-                        candidateRegexTree = buildTree(row.candidateRegex());
-                        candidateRegexTreeCache.put(row.candidateRegex(), candidateRegexTree);
-                        logger.info("successfully built and cached tree");
-                    } else {
-                        logger.info("regex /{}/ was already cached", row.candidateRegex());
-                    }
-
-                    if (candidateRegexTree.isEmpty()) {
-                        logger.warn("candidate tree is empty for {}, so skipping row for test suite {}", row.candidateRegexId(), row.testSuiteId());
-                        return Optional.<DistanceInput>empty().stream();
-                    }
-
-                    logger.info("Trees built successfully for regexes {} and {}", row.truthRegexId(), row.candidateRegexId());
-
-                    return Optional.of(new DistanceInput(row, truthRegexTree.get(), candidateRegexTree.get())).stream();
-                })
-                .map(input -> {
-                    int astEditDistance;
-                    if (input.cachedScore() >= 0) {
-                        // we used the cached score
-                        logger.info("already computed this score, using cached value {}", input.cachedScore());
-                        astEditDistance = input.cachedScore();
-                    } else {
-                        logger.info("computing distance between /{}/ and /{}/", input.rawRow().truthRegex(), input.rawRow().candidateRegex());
-                        astEditDistance = AstDistance.editDistance(input.truthTree(), input.reuseTree());
-                        cachedEditDistances.put(Pair.of(input.rawRow().truthRegexId(), input.rawRow().candidateRegexId()), astEditDistance);
-                        logger.info("successfully computed edit distance");
-                    }
-
-                    // TODO here we would also load up automaton stuff
-
-                    return new DistanceUpdateRecord(input.rawRow().testSuiteId(), input.rawRow().candidateRegexId(), astEditDistance, Double.NaN);
-                })
+        List<RegexTestSuite> regexTestSuites = testSuiteService.loadRegexTestSuites()
                 .toList();
 
-        databaseClient.updateManyTestSuiteResultsDistances(records);
-        logger.info("finished computing all distance measurements");
-    }
+        Collection<DistanceUpdateRecord> updateRecords = new ArrayList<>();
+        try (AutoCloseableExecutorService jobExecutor = new AutoCloseableExecutorService(Executors.newWorkStealingPool(Runtime.getRuntime().availableProcessors()));
+             AutoCloseableExecutorService safeExecutionContext = new AutoCloseableExecutorService(Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors()))) {
 
-    public void computeAndInsertDistanceUpdateRecords() throws SQLException {
-        // first, add the columns if needed
-        logger.info("Adding distance columns to result table schema if needed");
-        try {
-            databaseClient.addDistanceColumnsToResults();
-        } catch (SQLException e) {
-            logger.warn("Error encountered while altering tables", e);
-            logger.warn("continuing anyways...");
+            CompletionService<Optional<DistanceUpdateRecord>> completionService = new ExecutorCompletionService<>(jobExecutor);
+
+            int collectedTestSuites = 0;
+            for (RegexTestSuite testSuite : regexTestSuites) {
+
+                logger.info("starting to process test suite {}", testSuite.id());
+
+                // if truth regex is invalid, keep moving
+                if (!regexValidityChecker.test(testSuite.pattern())) {
+                    logger.info("skipping updating distances for test suite {}/{}: truth failed validity check", ++collectedTestSuites, regexTestSuites.size());
+                    continue;
+                }
+
+                logger.info("staring to process test suite {}", testSuite.id());
+                Optional<Tree> truthTreeOpt = Optional.empty();
+                if (computeAstDistance) {
+                    truthTreeOpt = buildTree(testSuite.pattern());
+                    if (truthTreeOpt.isEmpty()) {
+                        logger.info("skipping updating distances for test suite {}/{}: couldn't build tree for truth", ++collectedTestSuites, regexTestSuites.size());
+                        continue;
+                    }
+                }
+
+                LanguageApproximation truthLanguageApprox = null;
+                if (computeSemanticDistance) {
+                    Optional<Automaton> truthAutomaton = CoverageUtils.createAutomatonOptional(testSuite.pattern());
+                    if (truthAutomaton.isEmpty()) {
+                        logger.info("skipping updating distances for test suite {}/{}: failed to create truth automaton", ++collectedTestSuites, regexTestSuites.size());
+                        continue;
+                    }
+
+                    // generate strings for the ground truth regex
+                    try {
+                        Set<String> truthPositiveStrings = GenerateStrings.generateStrings(truthAutomaton.get(), generateStringsConfiguration.withGeneratePositiveStrings(true));
+                        Set<String> truthNegativeStrings = GenerateStrings.generateStrings(truthAutomaton.get(), generateStringsConfiguration.withGeneratePositiveStrings(false));
+
+                        Set<StringWithSubMatch> updatedPositive = truthPositiveStrings.stream()
+                                .map(str -> new StringWithSubMatch(str, 0, str.length()))
+                                .collect(Collectors.toSet());
+
+                        truthLanguageApprox = new LanguageApproximation(updatedPositive, truthNegativeStrings);
+                    } catch (IllegalArgumentException exe) {
+                        logger.info("skipping updating distances for test suite {}/{}: truth regex is syntactically invalid", ++collectedTestSuites, regexTestSuites.size());
+                        continue;
+                    } catch (OutOfMemoryError oom) {
+                        logger.info("ran out of memory while approximating language for regex /{}/", testSuite.pattern());
+                    }
+                }
+
+                if (truthTreeOpt.isEmpty() && truthLanguageApprox == null) {
+                    logger.info("Neither AST nor semantic distances are being computed, so continuing");
+                    continue;
+                }
+
+
+                // how that we have information about the truth, we can do stuff for each child
+                AtomicLong submittedJobs = new AtomicLong();
+                LanguageApproximation finalTruthLanguageApprox = truthLanguageApprox;
+                Tree nullableTruthTree = truthTreeOpt.orElse(null);
+                databaseClient.loadRawTestSuiteResults(testSuite.id())
+                        // make sure that candidates pass checks
+                        .filter(row -> regexValidityChecker.test(row.candidateRegex()) && relativeRegexValidityChecker.test(row.truthRegex(), row.candidateRegex()))
+                        .map(row -> new DistanceCalculatorTask(row, nullableTruthTree, finalTruthLanguageApprox, safeExecutionContext))
+                        .peek(_row -> submittedJobs.incrementAndGet())
+                        .forEach(completionService::submit);
+
+                for (long i = submittedJobs.get(); i > 0; i--) {
+                    Future<Optional<DistanceUpdateRecord>> future = completionService.take();
+                    Optional<DistanceUpdateRecord> result = future.get();
+                    result.ifPresent(updateRecords::add);
+                }
+
+                logger.info("finished updating distances for test suite {}/{}", ++collectedTestSuites, regexTestSuites.size());
+            }
+        } catch (ExecutionException | InterruptedException e) {
+            throw new RuntimeException(e);
         }
 
-
-        // next, compute the distances for everything
-        logger.info("loading test suite result rows...");
-        Map<Long, List<RawTestSuiteResultRow>> associatedGroups = databaseClient.loadRawTestSuiteResultsForDistanceUpdate()
-                .collect(Collectors.groupingBy(RawTestSuiteResultRow::testSuiteId));
-
-        logger.info("Starting to process distances...");
-        for (Map.Entry<Long, List<RawTestSuiteResultRow>> entry : associatedGroups.entrySet()) {
-            long testSuiteId = entry.getKey();
-            String truthRegexPattern = entry.getValue().get(0).truthRegex();
-            Optional<Tree> truthRegexTree = buildTree(truthRegexPattern);
-            Optional<Automaton> truthAutomaton = buildAutomaton(truthRegexPattern);
-
-            List<DistanceUpdateRecord> records = entry.getValue().stream()
-                    .map(row -> {
-                        Optional<Tree> candidateTree = buildTree(row.candidateRegex());
-                        int astDistance = zipOptionals(truthRegexTree, candidateTree)
-                                .map(treePair -> AstDistance.editDistance(treePair.left(), treePair.right()))
-                                .orElse(-1);
-
-                        double automatonDistance = zipOptionals(truthAutomaton, buildAutomaton(row.candidateRegex()))
-                                .map(autoPair -> automatonDistanceMeasure.apply(autoPair.left(), autoPair.right()))
-                                .orElse(Double.NaN);
-
-                        return new DistanceUpdateRecord(testSuiteId, row.candidateRegexId(), astDistance, automatonDistance);
-                    })
-                    .toList();
-
-            databaseClient.updateManyTestSuiteResultsDistances(records);
-            logger.info("computed all distances for test suite {}", testSuiteId);
-        }
-    }
-
-    private OptionalInt hasCachedScore(RawTestSuiteResultRow row) {
-        Pair<Long, Long> idPair = Pair.of(row.truthRegexId(), row.candidateRegexId());
-        if (cachedEditDistances.containsKey(idPair)) {
-            return OptionalInt.of(this.cachedEditDistances.get(idPair));
-        } else {
-            return OptionalInt.empty();
-        }
+        // save everything
+        logger.info("Updating distances in database");
+        databaseClient.updateManyTestSuiteResultsDistances(updateRecords);
+        logger.info("Successfully updated all distances");
     }
 
     private static Optional<Tree> buildTree(String pattern) {
@@ -214,27 +197,9 @@ public class UpdateDistancesService {
             Tree truthRegexTree = AstDistance.buildTree(pattern);
             truthRegexTree.prepareForDistance();
             return Optional.of(truthRegexTree);
-        } catch (IOException | OutOfMemoryError ignored) {
+        } catch (OutOfMemoryError ignored) {
             // if we encounter one of these errors, then we should just skip edit distance
             logger.warn("failed to build tree for truth regex, so skipping AST measures for this test suite");
-            return Optional.empty();
-        }
-    }
-
-    private static Optional<Automaton> buildAutomaton(String pattern) {
-        try {
-            RegExp regExp = new RegExp(pattern, RegExp.NONE);
-            Automaton auto = regExp.toAutomaton(true);
-            return Optional.of(auto);
-        } catch (IllegalArgumentException | StackOverflowError exe) {
-            return Optional.empty();
-        }
-    }
-
-    private static <T, U> Optional<Pair<T, U>> zipOptionals(Optional<T> first, Optional<U> second) {
-        if (first.isPresent() && second.isPresent()) {
-            return Optional.of(new Pair<>(first.get(), second.get()));
-        } else {
             return Optional.empty();
         }
     }

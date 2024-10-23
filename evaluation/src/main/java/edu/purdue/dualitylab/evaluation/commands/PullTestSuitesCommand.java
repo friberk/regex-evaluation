@@ -23,6 +23,10 @@ import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.Executors;
 
+/**
+ * Use this command to classify test suite strings as positive or negative strings. This command should be run before
+ * the evaluation command.
+ */
 public class PullTestSuitesCommand extends AbstractCommand<PullTestSuiteArgs, Void> {
 
     private static final Logger logger = LoggerFactory.getLogger(PullTestSuitesCommand.class);
