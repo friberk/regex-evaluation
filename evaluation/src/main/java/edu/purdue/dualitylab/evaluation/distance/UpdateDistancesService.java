@@ -8,11 +8,13 @@ import edu.purdue.dualitylab.evaluation.distance.ast.Tree;
 import edu.purdue.dualitylab.evaluation.evaluation.AutoCloseableExecutorService;
 import edu.purdue.dualitylab.evaluation.model.*;
 import edu.purdue.dualitylab.evaluation.safematch.SafeMatcher;
+import edu.purdue.dualitylab.evaluation.util.CancellableTask;
 import edu.purdue.dualitylab.evaluation.util.CoverageUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.sql.SQLException;
+import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicLong;
@@ -44,7 +46,7 @@ public class UpdateDistancesService {
         @Override
         public Optional<DistanceUpdateRecord> call() throws Exception {
             // first, build out the stuff we need for the candidate
-            Optional<Tree> candidateTree = buildTree(candidateRow().candidateRegex());
+            Optional<Tree> candidateTree = buildTree(candidateRow().candidateRegex(), safeMatchContext);
 
             // compile the regex
             Pattern candidatePattern = null;
@@ -101,8 +103,7 @@ public class UpdateDistancesService {
 
     public void computeAndInsertDistanceUpdateRecordsV3(boolean computeAstDistance, boolean computeSemanticDistance) throws SQLException {
 
-        List<RegexTestSuite> regexTestSuites = testSuiteService.loadRegexTestSuites()
-                .toList();
+        List<RegexTestSuite> regexTestSuites = testSuiteService.loadRegexTestSuites().toList();
 
         Collection<DistanceUpdateRecord> updateRecords = new ArrayList<>();
         try (AutoCloseableExecutorService jobExecutor = new AutoCloseableExecutorService(Executors.newWorkStealingPool(Runtime.getRuntime().availableProcessors()));
@@ -124,7 +125,7 @@ public class UpdateDistancesService {
                 logger.info("staring to process test suite {}", testSuite.id());
                 Optional<Tree> truthTreeOpt = Optional.empty();
                 if (computeAstDistance) {
-                    truthTreeOpt = buildTree(testSuite.pattern());
+                    truthTreeOpt = buildTree(testSuite.pattern(), safeExecutionContext);
                     if (truthTreeOpt.isEmpty()) {
                         logger.info("skipping updating distances for test suite {}/{}: couldn't build tree for truth", ++collectedTestSuites, regexTestSuites.size());
                         continue;
@@ -133,7 +134,7 @@ public class UpdateDistancesService {
 
                 LanguageApproximation truthLanguageApprox = null;
                 if (computeSemanticDistance) {
-                    Optional<Automaton> truthAutomaton = CoverageUtils.createAutomatonOptional(testSuite.pattern());
+                    Optional<Automaton> truthAutomaton = CoverageUtils.createAutomatonCancellable(testSuite.pattern(), safeExecutionContext, Duration.ofSeconds(30));
                     if (truthAutomaton.isEmpty()) {
                         logger.info("skipping updating distances for test suite {}/{}: failed to create truth automaton", ++collectedTestSuites, regexTestSuites.size());
                         continue;
@@ -182,7 +183,7 @@ public class UpdateDistancesService {
 
                 logger.info("finished updating distances for test suite {}/{}", ++collectedTestSuites, regexTestSuites.size());
             }
-        } catch (ExecutionException | InterruptedException e) {
+        } catch (Exception e) {
             throw new RuntimeException(e);
         }
 
@@ -192,15 +193,20 @@ public class UpdateDistancesService {
         logger.info("Successfully updated all distances");
     }
 
-    private static Optional<Tree> buildTree(String pattern) {
+    private static Optional<Tree> buildTree(String pattern, ExecutorService executionContext) throws Exception {
+        CancellableTask<Tree> task = new CancellableTask<>(executionContext, () -> buildTree(pattern), Duration.ofSeconds(30));
+        return task.call();
+    }
+
+    private static Tree buildTree(String pattern) {
         try {
             Tree truthRegexTree = AstDistance.buildTree(pattern);
             truthRegexTree.prepareForDistance();
-            return Optional.of(truthRegexTree);
+            return truthRegexTree;
         } catch (OutOfMemoryError ignored) {
             // if we encounter one of these errors, then we should just skip edit distance
             logger.warn("failed to build tree for truth regex, so skipping AST measures for this test suite");
-            return Optional.empty();
+            return null;
         }
     }
 }

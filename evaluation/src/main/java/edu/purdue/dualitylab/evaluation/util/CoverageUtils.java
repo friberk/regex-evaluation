@@ -4,15 +4,16 @@ import dk.brics.automaton.Automaton;
 import dk.brics.automaton.AutomatonCoverage;
 import dk.brics.automaton.DfaBudgetExceededException;
 import dk.brics.automaton.RegExp;
-import edu.purdue.dualitylab.evaluation.TestSuiteStatistics;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.Duration;
 import java.util.Optional;
+import java.util.concurrent.ExecutorService;
 
 public class CoverageUtils {
 
-    private static Logger logger = LoggerFactory.getLogger(CoverageUtils.class);
+    private static final Logger logger = LoggerFactory.getLogger(CoverageUtils.class);
 
     public static Optional<AutomatonCoverage> createAutomatonCoverageOptional(String pattern) {
         return createAutomatonOptional(pattern)
@@ -24,12 +25,31 @@ public class CoverageUtils {
         return new AutomatonCoverage(auto);
     }
 
-    public static Optional<Automaton> createAutomatonOptional(String pattern) {
+    public static Optional<Automaton> createAutomatonCancellable(String pattern, ExecutorService safeExecutionContext, Duration timeout) {
         try {
-            Automaton auto = createAutomaton(pattern);
-            return Optional.of(auto);
-        } catch (Throwable ignored) {
+            CancellableTask<Automaton> task = new CancellableTask<>(
+                    safeExecutionContext,
+                    () -> createAutomatonNullable(pattern),
+                    timeout
+            );
+
+            return task.call();
+        } catch (Exception exe) {
+            // additionally wrap any execution exceptions
             return Optional.empty();
+        }
+    }
+
+    public static Optional<Automaton> createAutomatonOptional(String pattern) {
+        Automaton auto = createAutomatonNullable(pattern);
+        return Optional.ofNullable(auto);
+    }
+
+    private static Automaton createAutomatonNullable(String pattern) {
+        try {
+            return createAutomaton(pattern);
+        } catch (Throwable ignored) {
+            return null;
         }
     }
 
