@@ -160,3 +160,9 @@ Currently, there is no way to load those files into our evaluation tool. There a
 2) transfer Nate's synthesized data into the regex database.
 
 It's your call either way. 2 might be easier, though.
+
+## Reports
+I have a bunch of random SQL queries sitting around. The most relevant ones are [here](https://github.com/PurdueDualityLab/regex-extractor-v2/blob/master/reporting/report_specs/reports.toml).
+Read each of the query strings for various queries. Each should also have a title that gives some idea of the purpose. This file can be fed into the `reporting` tool in the static
+extractor to generate a spreadsheet. The most recent spreadsheet generated from [this spreadsheet that you might need to request access to](https://purdue0-my.sharepoint.com/:x:/r/personal/cmsale_purdue_edu/Documents/Documents/Research%20documents/300k%20extraction%20characteristics.xlsx?d=wc907c90075e7446eab772545da2303ee&csf=1&web=1&e=WfTaFN).
+Feel free to ask questions about specific tables in there.
