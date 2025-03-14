@@ -1,3 +1,0 @@
-[submodule "dk.brics.automaton"]
-	path = dk.brics.automaton
-	url = git@github.com:PurdueDualityLab/dk.brics.automaton.git

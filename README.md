@@ -8,7 +8,7 @@ such as:
 - Compute AST/semantic distance measures
 - Create database of internet regexes and evaluate them
 
-As a side note, this project depends heavily on [Purdue's fork of the brics library](https://github.com/PurdueDualityLab/dk.brics.automaton).
+As a side note, this project depends heavily on our fork of the brics library.
 This package is where e-similarity and automaton coverage are implemented. If you need to update the implementation of
 either of these tools, update it upstream and then update the submodule in this project.
 
@@ -25,7 +25,7 @@ Running `./gradlew assemble` will compile the entire project.
 
 ### SQLite Extensions Dependency
 Some of the queries use the same SQLite extensions used by the extractor. The extractor repository has a package that
-provides these extensions in a shared library. That package is located [here](https://github.com/PurdueDualityLab/regex-extractor-v2/tree/master/tools/sqlite-regex-extensions).
+provides these extensions in a shared library. That package is located here.
 Take that repository, build it, and find the shared library it produces (it should be called libsqlite-regex-extensions.so
 or something like that.) As mentioned in the help docs, set the `SQLITE_REGEX_EXTENSION_PATH=<whatever the absolute path to that library is>`.
 Do this each time you execute the evaluator. Alternatively, you can set that path as a flag, but I find the environment
