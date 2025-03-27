@@ -1,0 +1,256 @@
+^[0-9]+$
+\r?\n
+[A-Z]
+^\/\/
+^[0-9]+$
+\s{2,}
+\.(html)$
+\.(jpe?g|png|gif|svg)$
+\.css$
+\.ts$
+^(file|folder)$
+[/\\]
+[A-Z]
+^text\/
+^\d+\.\d+\.\d+$
+\r?\n
+^operations\/[-A-Za-z0-9]+$
+^operations\/([-A-Za-z0-9]+)$
+^projects\/([-\w]+)\/locations\/([-\w]+)\/functions\/([A-Za-z][-A-Za-z0-9_]*)$
+^[A-Za-z][-A-Za-z0-9_]*$
+firebase.database
+\s\s*$
+^\[([^\]]+)\]\s*(?:#.*)?$|^([a-z_]+)\s*=\s*(.+?)\s*(?:#.*)?$
+^[ ]+$
+application\/x-amz-json
+(application|text)\/xml
+\r?\n
+\r\n?
+[\s,]+
+^Lorem,?\sipsum,?\sdolor
+moduleId=(\w+)
+moduleId=(?!none)(\w+)
+^[.\d]+
+^(?:-o|--output)$
+^(?:-m|--source-map)$
+\bfunction\b|\b[a-z]+(?:[A-Z][a-z]+)+\(|\broot\.(?:[A-Z][a-z0-9]+)+\b
+([A-Za-z0-9\u00C0-\u00FF])
+([ :–—-])
+[A-Z]|\..
+^\/([^/^~]+)$
+^fields\/[^/^~]+\/~locale$
+(<|>)(\d{1,})(px|cm|mm|in|pt|pc)$
+^[a-zA-Z0-9-_]{1,32}$
+^[a-zA-Z0-9-_]{1,21}$
+^[a-zA-Z0-9-_]{1,54}$
+^\*$|^<[0-9*]+px$
+px|<|>
+[A-Z]
+^\d+\.?\d*$
+[:.]$
+^[0-9]+$
+^[?#]
+(\/?\:[^\/]+)\?
+^(\/\:[^\/]+)\?
+^.*?#
+\.(bpmn|xml|css)$
+\r?\n
+^\/\/
+(localhost|127\.0\.0\.1):\d+
+Bearer .*
+^\s*$
+[A-Z]
+options must be constructed with changing.options function
+invalid date(time array)?
+invalid date.*begining
+\\x2d
+read.only
+not extensible|non-writable
+Cannot delete|non-configurable
+Expect.+a string
+^[_a-z][_a-z0-9]*$
+\r?\n
+^\/\/
+\r?\n
+^\s*#
+[\s,]+
+^[0-9]+$
+\r?\n
+\r\n?
+^TypeError.*, but got a non-string value undefined\.
+^TypeError.*Expected a file path to write a file, but got a non-string value \[ 'a', <Buffer 62> ]\.
+^Error.*Expected a file path to write a file, but got '' \(empty string\)\.
+^TypeError
+\.(m?js|json|svg|css|html)$
+[\s'\\$]
+(.*\/|\^):([a-z0-9_\-\.\*\@\#]+)(\/.*|\$)
+\{platform\}
+\{arch\}
+error.error
+info.info
+error.info
+ D debug.debug
+ I info.debug
+ ERROR error.debug
+ D debug.any
+ I info.any
+ ERROR error.any
+(\\[a-zA-Z0-9_\s]+)*
+\/#\/
+(^[.#]|(?:__|~)$)
+^[a-zA-Z0-9-_]{1,54}$
+^\*$|^<[0-9*]+px$
+px|<|>
+[A-Z]
+^\d+\.?\d*$
+[:.]$
+^[0-9]+$
+^[?#]
+(\/?\:[^\/]+)\?
+^(\/\:[^\/]+)\?
+^.*?#
+\.(bpmn|xml|css)$
+\r?\n
+^\/\/
+(localhost|127\.0\.0\.1):\d+
+Bearer .*
+^\s*$
+[A-Z]
+options must be constructed with changing.options function
+invalid date(time array)?
+invalid date.*begining
+\\x2d
+read.only
+not extensible|non-writable
+Cannot delete|non-configurable
+Expect.+a string
+^[_a-z][_a-z0-9]*$
+\r?\n
+^\/\/
+\r?\n
+^\s*#
+[\s,]+
+^[0-9]+$
+\r?\n
+\r\n?
+^TypeError.*, but got a non-string value undefined\.
+^TypeError.*Expected a file path to write a file, but got a non-string value \[ 'a', <Buffer 62> ]\.
+^Error.*Expected a file path to write a file, but got '' \(empty string\)\.
+^TypeError
+\.(m?js|json|svg|css|html)$
+[\s'\\$]
+(.*\/|\^):([a-z0-9_\-\.\*\@\#]+)(\/.*|\$)
+\{platform\}
+\{arch\}
+error.error
+info.info
+error.info
+ D debug.debug
+ I info.debug
+ ERROR error.debug
+ D debug.any
+ I info.any
+ ERROR error.any
+(\\[a-zA-Z0-9_\s]+)*
+\/#\/
+(^[.#]|(?:__|~)$)
+\r?\n
+\r?\n
+[\s,]+
+^\d+\.\d+\.\d+$
+-([a-z])
+^__proto__|prototype|constructor$
+Access to member "\w+" from blockList is not permitted.
+Access to member "\w+" not in allowList is not permitted.
+Access to member "\w+" disallowed
+={0,2}$
+[^\s0-9a-zA-Z\+/]
+[^\s0-9a-zA-Z\-_]
+\r?\n
+^spawn
+\r?\n$
+^\d+$
+@import ["'](.*)["'];
+(.*)-(\d)
+primary-\d
+^\/\/
+^connect to ([^ ]+): (.*)$
+^statistics: (.*)
+^postfix
+\belse\b\s+\bif\b
+\r?\n
+\.less$
+^W\/".*-compiless"$
+^W\/"[a-z0-9-]+"$
+\/[^/]*(?:\?.*)?$
+\x20{2}
+[<>&]
+-([a-z])
+[\s,]+
+[\s,]+
+[\n\r]+
+^[\s\n]*htmlcs-(\w+)(?:\s+([\w\-]+(?:,\s*[\w\-]+)*)?[\s\n]*)?$
+^[\s\n]*htmlcs\s([\s\S]*)$
+\(.+\)
+^.+([ \t]+)$
+\w([ \t]{2,})\w
+^\/.*\/$
+^\t*(?=\S|$)
+^(  )*(?=\S|$)
+^(    )*(?=\S|$)
+[\_\-]+
+\s*,\s*
+\r\n?
+^https?:\/\/
+\r?\n
+^\/\/
+^\/\/
+^class(?:\s+([^{ \s]*?)[{\s])
+^\/([\s\S]+)\/([dgimsuy]*)$
+xmlns:?(.*)
+["&'<>]
+[^.]+$
+hasOwnProperty|(function).*?(?=\\\()| for .+?(?=\\\])
+\r?\n
+^[./]*\.$
+^[./]*\/$
+(\r?\n)
+^\/\/
+@inject\b
+\n\s*
+[^\w$]+
+^#\/components\/schemas\/
+^#\/components\/responses\/
+^#\/components\/parameters\/
+^#\/components\/examples\/
+^#\/components\/requestBodies\/
+^#\/components\/headers\/
+^#\/components\/securitySchemes\/
+^#\/components\/links\/
+^#\/components\/callbacks\/
+([a-z])([A-Z]+)
+\[.*\]$
+^[^a-zA-Z]+
+^(\d+)
+[^\w\-]+
+\.ts$
+\r?\n
+^\d{2,}$
+\r?\n
+[\s,]+
+^[0-9]+$
+\r?\n
+\r?\n
+^\/\/
+[A-Z]
+^(-+)([\w\-]*)(=?)([\w\-\s]*)$
+(css|less|sass|jpg|jpeg|png|gif|eot|otf|webp|svg|ttf|woff|woff2|mp4|webm|wav|mp3|m4a|aac|oga)
+[\.\?\!]
+\.tsx?$
+^apple
+^facebook
+^google
+(?:^|[\\/])\.\.(?:[\\/]|$)
+^(\s+)
+^\([^)]+\)
+^(AND|OR|NOT)

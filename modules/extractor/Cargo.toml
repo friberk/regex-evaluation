@@ -1,0 +1,8 @@
+
+[workspace]
+members = [
+    "db", "driver", "dynamic-extraction", "ecosystems-dump",
+    "evaluation", "reporting", "shared", "static-extraction",
+    "tools/python-static-extractor-v2"
+]
+exclude = ["tools/sqlite-regex-extensions"]

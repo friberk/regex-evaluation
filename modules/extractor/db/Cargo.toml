@@ -1,0 +1,13 @@
+[package]
+name = "db"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+shared = { path = "../shared" }
+rusqlite = { version = "0.31.0", features = ["serde_json", "blob", "column_decltype", "functions"] }
+log = "0.4.21"
+regex-automata = "0.4.6"
+regex = "1.10.4"

@@ -1,0 +1,10 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "types": [
+      "node",
+    ],
+    "esModuleInterop": true,
+    "outDir": "build"
+  },
+}

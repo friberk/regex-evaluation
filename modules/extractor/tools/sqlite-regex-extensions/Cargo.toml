@@ -1,0 +1,12 @@
+[package]
+name = "sqlite-regex-extensions"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+shared = { path = "../../shared" }
+rusqlite = { version = "0.31.0", features = ["functions", "loadable_extension"] }
+log = "0.4.21"

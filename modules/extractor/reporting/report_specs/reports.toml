@@ -1,0 +1,312 @@
+[[report]]
+name = "Package Processing Summary"
+query = """
+SELECT status, project_spec.language AS source_language, COUNT(status) as status_count
+FROM project_processing_report
+INNER JOIN project_spec ON project_spec.id = project_id
+GROUP BY project_processing_report.status, project_spec.language
+ORDER BY status_count DESC;
+"""
+columns = ["status", "source_language", "status_count"]
+
+[[report]]
+name = "Packages with Regexes"
+query = """
+SELECT project_spec.name AS project_name, project_spec.language, COUNT(DISTINCT regex_source_usage.regex_id) as unique_static_regex_count
+FROM regex_source_usage
+INNER JOIN regex_entity ON regex_entity.id = regex_id
+INNER JOIN project_spec ON project_spec.id = project_id
+WHERE
+    IS_METACHAR_REGEX(regex_entity.pattern) IS TRUE AND  -- take only patterns that have meta characters in them
+    regex_entity.static = TRUE                             -- take only patterns that were found statically
+GROUP BY project_id
+ORDER BY unique_static_regex_count DESC;
+"""
+columns = ["project_name", "language", "unique_static_regex_count"]
+
+[[report]]
+name = "Regex Ecosystem Origins"
+query = """
+WITH ecosystem_origins AS (
+SELECT
+    regex_id,
+    MAX(CASE WHEN project_spec.language = 'JAVASCRIPT' THEN 1 ELSE 0 END) AS has_javascript,
+    MAX(CASE WHEN project_spec.language = 'JAVA' THEN 1 ELSE 0 END) AS has_java,
+    MAX(CASE WHEN project_spec.language = 'PYTHON' THEN 1 ELSE 0 END) AS has_python
+FROM
+    regex_source_usage
+INNER JOIN regex_entity ON regex_source_usage.regex_id = regex_entity.id
+INNER JOIN project_spec ON regex_source_usage.project_id = project_spec.id
+GROUP BY
+    regex_id
+)
+SELECT regex_id, has_javascript, has_java, has_python, ((has_javascript << 2) | (has_java << 1) | has_python) AS category
+FROM ecosystem_origins;
+"""
+columns = ["regex_id", "has_javascript", "has_java", "has_python", "category"]
+
+[[report]]
+name = "Regexes Reused Across Projects"
+tmp_table_query = """
+CREATE TEMPORARY TABLE IF NOT EXISTS regex_reuse_across_projects_count AS
+SELECT regex_entity.id AS regex_id, regex_entity.pattern, COUNT(DISTINCT regex_source_usage.project_id) AS unique_project_count
+FROM regex_source_usage
+INNER JOIN regex_entity ON regex_entity.id = regex_id
+INNER JOIN project_spec ON project_spec.id = project_id
+WHERE
+    IS_METACHAR_REGEX(regex_entity.pattern) IS TRUE AND  -- take only patterns that have meta characters in them
+    regex_entity.static = TRUE                             -- take only patterns that were found statically
+GROUP BY regex_id
+ORDER BY unique_project_count DESC;
+"""
+query = """
+SELECT regex_id, pattern, unique_project_count FROM regex_reuse_across_projects_count
+"""
+columns = ["regex_id", "pattern", "unique_project_count"]
+auto_width_columns = false
+ignored = true
+
+[[report]]
+name = "Project Recurrence Frequency"
+query = """
+SELECT unique_project_count, COUNT(unique_project_count) as frequency
+FROM regex_reuse_across_projects_count
+GROUP BY unique_project_count
+ORDER BY unique_project_count DESC;
+"""
+columns = ["unique_project_count", "frequency"]
+ignored = true
+
+[[report]]
+name = "Regexes With TestSuites"
+query = """
+SELECT regex_entity.id, regex_entity.pattern, COUNT(DISTINCT regex_subject.subject) as unique_subject_count
+FROM regex_subject
+INNER JOIN regex_entity ON regex_entity.id = regex_id
+WHERE
+    FILTER_REGEX(regex_entity.pattern, 5) IS TRUE AND  -- take only patterns that have meta characters in them
+    regex_entity.static = TRUE                             -- take only patterns that were found statically
+GROUP BY regex_entity.id
+ORDER BY unique_subject_count DESC;
+"""
+columns = ["id", "pattern", "unique_subject_count"]
+auto_width_columns = false
+ignored = true
+
+[[report]]
+name = "Regex Testsuite Origins"
+query = """
+SELECT regex_entity.id, COUNT(DISTINCT project_id) unique_originating_projects, COUNT(DISTINCT regex_subject.subject) as unique_subject_count
+FROM regex_subject
+INNER JOIN regex_entity ON regex_entity.id = regex_id
+WHERE
+    FILTER_REGEX(regex_entity.pattern, 5) IS TRUE AND  -- take only patterns that have meta characters in them
+    regex_entity.static = TRUE                             -- take only patterns that were found statically
+GROUP BY regex_entity.id
+ORDER BY regex_entity.id;
+"""
+columns = ["id", "unique_originating_projects", "unique_subject_count"]
+ignored = true
+
+[[report]]
+name = "Regex Test Suite Sizes"
+tmp_table_query = """
+CREATE TEMPORARY TABLE IF NOT EXISTS candidate_regexes_and_origins AS
+    -- records a statically (and dynamically) extracted regex, the source originating-project, and the specific source usage
+SELECT regex_entity.id AS regex_id, project_spec.id AS project_id, regex_source_usage.id AS source_usage_id
+FROM regex_source_usage
+    -- take regexes that are static and dynamic and have source usages
+INNER JOIN regex_entity ON regex_source_usage.regex_id = regex_entity.id
+    -- also pull project info
+INNER JOIN project_spec ON regex_source_usage.project_id = project_spec.id
+WHERE
+    regex_entity.static = TRUE AND
+    regex_entity.dynamic = TRUE AND
+    FILTER_REGEX(regex_entity.pattern, 5) IS TRUE;
+"""
+query = """
+SELECT regex_subject.regex_id, regex_subject.project_id, COUNT(regex_subject.subject) as subject_count, COUNT(DISTINCT regex_subject.subject) AS unique_subject_count
+FROM regex_subject
+INNER JOIN candidate_regexes_and_origins ON candidate_regexes_and_origins.regex_id = regex_subject.regex_id AND candidate_regexes_and_origins.project_id = regex_subject.project_id
+INNER JOIN regex_entity ON regex_entity.id = regex_subject.regex_id
+WHERE
+    regex_entity.static = TRUE AND
+    regex_entity.dynamic = TRUE AND
+    FILTER_REGEX(regex_entity.pattern, 5) IS TRUE
+GROUP BY regex_subject.project_id, regex_subject.regex_id
+ORDER BY regex_subject.regex_id;
+"""
+columns = ["regex_id", "project_id", "subject_count", "unique_subject_count"]
+ignored = true
+
+[[report]]
+id = "ts-characteristics"
+name = "Regex TS Characteristics"
+query = """
+SELECT
+    test_suite.project_id,
+    test_suite.regex_id,
+    test_suite.id as test_suite_id,
+    COUNT(DISTINCT test_suite_string.subject) as unique_subject_count,
+    AVG(LENGTH(test_suite_string.subject)) as avg_unique_subject_len,
+    test_suite.full_node_coverage,
+    test_suite.full_edge_coverage,
+    test_suite.full_edge_pair_coverage,
+    test_suite.partial_node_coverage,
+    test_suite.partial_edge_coverage,
+    test_suite.partial_edge_pair_coverage,
+    SUM(test_suite_string.full_match) AS full_match_positive_strings,
+    SUM(NOT test_suite_string.full_match) AS full_match_negative_strings,
+    SUM(test_suite_string.partial_match) AS partial_match_positive_strings,
+    SUM(NOT test_suite_string.partial_match) AS partial_match_negative_strings,
+    COALESCE(SUM(test_suite_result.full_match_result), 0) AS full_match_count,
+    COALESCE(SUM(test_suite_result.partial_match_result), 0) AS partial_match_count
+FROM test_suite_string
+INNER JOIN test_suite ON test_suite.id = test_suite_string.test_suite_id
+LEFT JOIN test_suite_result ON test_suite_result.test_suite_id = test_suite.id
+GROUP BY test_suite.id
+ORDER BY unique_subject_count DESC;
+"""
+columns = [
+    "project_id", "regex_id", "test_suite_id", "unique_subject_count", "avg_unique_subject_len",
+    "full_node_coverage", "full_edge_coverage", "full_edge_pair_coverage",
+    "partial_node_coverage", "partial_edge_coverage", "partial_edge_pair_coverage",
+    "full_match_positive_strings", "full_match_negative_strings",
+    "partial_match_positive_strings", "partial_match_negative_strings", "full_match_count", "partial_match_count"
+]
+
+[[report]]
+name = "Regex TS Characteristics by Func"
+query = """
+SELECT
+    test_suite.project_id,
+    test_suite.regex_id,
+    test_suite.id as test_suite_id,
+    test_suite_string.func,
+    COUNT(DISTINCT test_suite_string.subject) as unique_subject_count,
+    AVG(LENGTH(test_suite_string.subject)) as avg_unique_subject_len,
+    test_suite.full_node_coverage,
+    test_suite.full_edge_coverage,
+    test_suite.full_edge_pair_coverage,
+    test_suite.partial_node_coverage,
+    test_suite.partial_edge_coverage,
+    test_suite.partial_edge_pair_coverage,
+    SUM(test_suite_string.full_match) AS full_match_positive_strings,
+    SUM(NOT test_suite_string.full_match) AS full_match_negative_strings,
+    SUM(test_suite_string.partial_match) AS partial_match_positive_strings,
+    SUM(NOT test_suite_string.partial_match) AS partial_match_negative_strings
+FROM test_suite_string
+INNER JOIN test_suite ON test_suite.id = test_suite_string.test_suite_id
+GROUP BY test_suite.id, test_suite_string.func
+ORDER BY unique_subject_count DESC;
+"""
+columns = [
+    "project_id", "regex_id", "test_suite_id", "func", "unique_subject_count", "avg_unique_subject_len",
+    "full_node_coverage", "full_edge_coverage", "full_edge_pair_coverage",
+    "partial_node_coverage", "partial_edge_coverage", "partial_edge_pair_coverage",
+    "full_match_positive_strings", "full_match_negative_strings",
+    "partial_match_positive_strings", "partial_match_negative_strings"
+]
+ignored = true
+
+[[report]]
+name = "TS Solns."
+query = """
+SELECT
+    test_suite_id,
+    truth_regex.pattern AS truth_pattern,
+    candidate_regex.pattern AS candidate_pattern
+FROM test_suite_result
+INNER JOIN test_suite ON test_suite.id = test_suite_result.test_suite_id
+INNER JOIN regex_entity AS truth_regex ON test_suite.regex_id = truth_regex.id
+INNER JOIN regex_entity AS candidate_regex ON test_suite_result.regex_id = candidate_regex.id;
+"""
+columns = ["test_suite_id", "truth_pattern", "candidate_pattern"]
+auto_width_columns = false
+ignored = true
+
+[[report]]
+id = "ts-fm-soln-summary"
+name = "TS FM Soln. Summary"
+query = """
+WITH string_counts AS (
+    SELECT
+        test_suite_id, SUM(full_match) AS match, SUM(NOT full_match) AS non_match
+    FROM
+        test_suite_string
+    GROUP BY test_suite_id
+),
+    across_projects AS (
+    SELECT regex_entity.id AS regex_id, COUNT(DISTINCT regex_source_usage.project_id) AS unique_project_count
+    FROM regex_source_usage
+    INNER JOIN regex_entity ON regex_entity.id = regex_id
+    INNER JOIN project_spec ON project_spec.id = project_id
+    WHERE
+        regex_entity.static = TRUE                             -- take only patterns that were found statically
+    GROUP BY regex_id
+)
+SELECT
+    test_suite.id AS test_suite_id,
+    test_suite.project_id AS ts_project_id,
+    truth_regex.id AS truth_regex_id,
+    across_projects.unique_project_count AS project_reuse_count,
+    truth_regex.pattern AS truth_regex,
+    string_counts.match AS positive_string_count,
+    string_counts.non_match AS negative_string_count,
+    SUM(test_suite_result.full_match_result) AS result_count
+FROM
+    test_suite
+LEFT JOIN test_suite_result ON test_suite.id = test_suite_result.test_suite_id
+INNER JOIN regex_entity AS truth_regex ON test_suite.regex_id = truth_regex.id
+INNER JOIN string_counts ON string_counts.test_suite_id = test_suite.id
+JOIN across_projects ON test_suite.regex_id = across_projects.regex_id
+WHERE
+    test_suite_result.full_match_result IS NOT NULL
+GROUP BY test_suite.id
+ORDER BY result_count DESC;
+"""
+columns = ["test_suite_id", "ts_project_id", "truth_regex_id", "project_reuse_count", "truth_regex", "positive_string_count", "negative_string_count", "result_count"]
+auto_width_columns = false
+
+[[report]]
+id = "ts-pm-soln-summary"
+name = "TS PM Soln. Summary"
+query = """
+WITH string_counts AS (
+    SELECT
+        test_suite_id, SUM(partial_match) AS match, SUM(NOT partial_match) AS non_match
+    FROM
+        test_suite_string
+    GROUP BY test_suite_id
+),
+    across_projects AS (
+    SELECT regex_entity.id AS regex_id, COUNT(DISTINCT regex_source_usage.project_id) AS unique_project_count
+    FROM regex_source_usage
+    INNER JOIN regex_entity ON regex_entity.id = regex_id
+    INNER JOIN project_spec ON project_spec.id = project_id
+    WHERE
+        regex_entity.static = TRUE                             -- take only patterns that were found statically
+    GROUP BY regex_id
+)
+SELECT
+    test_suite.id AS test_suite_id,
+    test_suite.project_id AS ts_project_id,
+    truth_regex.id AS truth_regex_id,
+    across_projects.unique_project_count AS project_reuse_count,
+    truth_regex.pattern AS truth_regex,
+    string_counts.match AS positive_string_count,
+    string_counts.non_match AS negative_string_count,
+    SUM(test_suite_result.partial_match_result) AS result_count
+FROM
+    test_suite
+LEFT JOIN test_suite_result ON test_suite.id = test_suite_result.test_suite_id
+INNER JOIN regex_entity AS truth_regex ON test_suite.regex_id = truth_regex.id
+INNER JOIN string_counts ON string_counts.test_suite_id = test_suite.id
+JOIN across_projects ON test_suite.regex_id = across_projects.regex_id
+WHERE
+    test_suite_result.partial_match_result IS NOT NULL
+GROUP BY test_suite.id
+ORDER BY result_count DESC;
+"""
+columns = ["test_suite_id", "ts_project_id", "truth_regex_id", "project_reuse_count", "truth_regex", "positive_string_count", "negative_string_count", "result_count"]
+auto_width_columns = false

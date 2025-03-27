@@ -1,0 +1,28 @@
+
+# combiner doesn't belong
+combiner/
+
+# don't take compiled stuff
+target/
+
+# tools is already in its own image
+tools/Dockerfile
+tools/java-static-extractor/
+tools/python-static-extractor/
+tools/javascript-static-extractor/
+tools/monkeypatch-regex/
+tools/java-dynamic-extractor/
+tools/nodejs-evaluation/
+tools/jde-agent/target/
+
+# don't take special files
+.git/
+.idea/
+
+# don't take any additional files that might be sitting around
+*.sqlite
+*.json
+*.txt
+*.md
+*.xlsx
+testing-grounds/

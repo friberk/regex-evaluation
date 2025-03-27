@@ -1,0 +1,37 @@
+[package]
+name = "driver"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[features]
+default = ["extractor", "reporting", "ecosystem-dump"]
+extractor = ["dep:static-extraction", "dep:dynamic-extraction"]
+evaluation = ["dep:evaluation"]
+reporting = ["dep:reporting"]
+ecosystem-dump = ["dep:ecosystems-dump"]
+
+[dependencies]
+
+# local dependencies
+shared = { path = "../shared" }
+db = { path = "../db" }
+static-extraction = { path = "../static-extraction", optional = true }
+dynamic-extraction = { path = "../dynamic-extraction", optional = true }
+evaluation = { path = "../evaluation", optional = true }
+ecosystems-dump = { path = "../ecosystems-dump", optional = true }
+reporting = { path = "../reporting", optional = true }
+
+# 3rd part dependencies
+serde = { version = "1.0.197", features = ["derive"] }
+serde_json = "1.0.114"
+toml = { version = "0.8.13", features = ["parse"] }
+clap = { version = "4.5.1", features = ["default", "env", "derive"] }
+rand = "0.8.5"
+threadpool = "1.8.1"
+log = "0.4.21"
+env_logger = "0.11.2"
+subprocess = "0.2.9"
+humantime = "2.1.0"
+promptly = "0.3.1"
