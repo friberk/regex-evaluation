@@ -1488,7 +1488,7 @@ def plot_rq2_best_target_syntactic_similarity():
     plt.savefig('syntactic_similarity_comparison.pdf', format='pdf', dpi=300)
     plt.show()
 
-def plot_rq3_best_target_semantic_similarity():
+def plot_rq2_best_target_semantic_similarity():
     """
     Create a bar chart comparing the average normalized AST edit distance
     for the best targets in BEST_TARGETS_SYNTACTIC.
@@ -1646,7 +1646,7 @@ def plot_rq3_best_target_semantic_similarity():
     # Save figure
     plt.savefig('semantic_similarity_comparison.pdf', format='pdf', dpi=300)
 
-def plot_rq4_helpfulness_score_distribution_grouped():
+def plot_rq3_helpfulness_score_distribution_grouped():
     """
     Create a grouped box plot comparing the distribution of helpfulness scores
     for the best targets in BEST_TARGETS_HELPFULNESS.
@@ -2371,17 +2371,16 @@ def plot_rq4_average_elapsed_time_spend_on_a_task_boxplot():
     plt.show()
 
 if __name__ == '__main__':
-    # plot_rq1_synthesizer_comparison_new()
-    # plot_rq1_synthesizer_comparison()
-    # plot_rq1_llm_comparison()
-    # plot_rq1_best_target_comparison()
-    # analyze_perfect_accuracy_tasks()
-    # plot_rq1_best_target_test_string_count_vs_accuracy()
-    # plot_rq1_best_target_gt_regex_length_vs_accuracy()
-    # plot_rq2_best_target_syntactic_similarity()
-    # plot_rq3_best_target_semantic_similarity()
-    # plot_rq3_helpfulness_score_distribution_grouped()
-    # plot_rq3_helpfulness_score_violin()
+    plot_rq1_synthesizer_comparison_new()
+    plot_rq1_synthesizer_comparison()
+    plot_rq1_llm_comparison()
+    plot_rq1_best_target_comparison()
+    analyze_perfect_accuracy_tasks()
+    plot_rq1_best_target_test_string_count_vs_accuracy()
+    plot_rq1_best_target_gt_regex_length_vs_accuracy()
+    plot_rq2_best_target_syntactic_similarity()
+    plot_rq2_best_target_semantic_similarity()
+    plot_rq3_helpfulness_score_distribution_grouped()
+    plot_rq3_helpfulness_score_violin()
     plot_rq4_average_elapsed_time_spend_on_a_task()
-    # plot_rq4_average_elapsed_time_spend_on_a_task_boxplot()
-    pass
+    plot_rq4_average_elapsed_time_spend_on_a_task_boxplot()
