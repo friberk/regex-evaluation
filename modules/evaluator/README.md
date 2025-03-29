@@ -1,5 +1,5 @@
 
-# Regex Evaluation
+# Evaluator
 
 This repository provides tools for performing the actual evaluation of the regex reuse project. This includes tasks
 such as:
@@ -16,7 +16,7 @@ either of these tools, update it upstream and then update the submodule in this 
 The best way to use the evaluation tool is to use it as a container. gradle handles building a container for you.
 Simply run the `:evaluation:dockerBuildImage` task to build a containerized version of this application.
 
-Otherwise, you can use the `gradle run` task to execute the main application. See the `--help` flag to get info on how
+Otherwise, you can install Java 22 locally and use the `gradle run` task to execute the main application. See the `--help` flag to get info on how
 to use the command line interface.
 
 To build, use gradle. A gradle wrapper is provided so you do not have to install gradle on your machine.

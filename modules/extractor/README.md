@@ -1,5 +1,7 @@
 
-# Regex Extractor
+# Extractor
+
+The static extractor's purpose is for fetching packages, extracting regexes and examples from projects, and more. There are some additional features like creating reports.
 
 ## Overview
 
@@ -41,3 +43,7 @@ perform.
 - Build project using cargo `cargo build --release`
 - use `extract` command to perform data collection
 
+## Reports
+We have written some SQL queries for this project. The most relevant ones are [here](./reporting/report_specs/reports.toml).
+Read each of the query strings for various queries. Each should also have a title that gives some idea of the purpose. This file can be fed into the `reporting` tool in the static
+extractor to generate a spreadsheet.

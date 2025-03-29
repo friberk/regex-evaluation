@@ -6,5 +6,5 @@ An example invocation is as follows:
 
 ```bash
 cd evaluator
-./gradlew :evaluation:run --args="manual-query --database <path to SQLite regex reuse database file)> --output <path to output NDJSON file for candidates> <path to file that contains test suites (i.e., regex composition bench)>"
+./gradlew :evaluation:run --args="manual-query --database <path to SQLite regex reuse database file)> --output <path to output NDJSON file contains regex candidates> <path to file that contains test suites (i.e., regex composition bench)>"
 ```

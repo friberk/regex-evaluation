@@ -4,6 +4,9 @@ from pyformlang.finite_automaton.symbol import Symbol
 from pyformlang.regular_expression import PythonRegex as Regex
 import re
 import warnings
+import argparse
+import sys
+
 warnings.filterwarnings("ignore")
 
 ALPHABET = [chr(i) for i in range(32, 127)]
@@ -166,7 +169,6 @@ def regex_to_min_dfa(regex_str, alphabet=None):
 
 def regex_to_dfa_no_min(regex_str, alphabet=None):
     """Converts a regex string into a raw (non-minimized) DFA, completed over alphabet if provided."""
-    # print("Regex:", regex_str)
     enfa = Regex(regex_str).to_epsilon_nfa()
     dfa = enfa.to_deterministic()  # no minimization
     if alphabet is not None:
@@ -177,12 +179,10 @@ def regex_to_dfa_no_min(regex_str, alphabet=None):
 def get_automata_transition_count(dfa):
     """Returns the total number of transitions in the DFA."""
     transitions = dfa.get_number_transitions()
-    states = len(dfa.states)
-    # count = sum(len(trans) for trans in transitions.values())
     return transitions
 
 
-def calculate_helpfulness_score(candidate_regex, positive_examples, negative_examples):
+def calculate_helpfulness_score(candidate_regex, positive_examples, negative_examples, verbose=False):
     """
     Computes a helpfulness score defined as:
         score = 1 - 2 * (|T(candidate)| - |T(candidate ∩ conservative)|) / |T(candidate)|
@@ -190,9 +190,17 @@ def calculate_helpfulness_score(candidate_regex, positive_examples, negative_exa
     In this metric, if the candidate is as liberal as possible (i.e. ".*"),
     then nearly all candidate transitions are outside the conservative part and the ratio is ~1,
     giving a score near -1. A more specific candidate will have a ratio lower than 1 and a higher score.
+
+    Args:
+        candidate_regex: The regex pattern to evaluate
+        positive_examples: List of strings that should match the regex
+        negative_examples: List of strings that should not match the regex
+        verbose: Whether to print detailed information during calculation
+
+    Returns:
+        A score between -1 (most liberal) and 1 (most conservative)
     """
     alphabet = get_common_alphabet(positive_examples, negative_examples)
-    # alphabet = extend_alphabet(positive_examples, negative_examples)
 
     adapted_candidate_regex = adapt_regex_to_pyformlang(candidate_regex)
 
@@ -200,8 +208,8 @@ def calculate_helpfulness_score(candidate_regex, positive_examples, negative_exa
     candidate_dfa_raw = regex_to_dfa_no_min(adapted_candidate_regex, alphabet)
     candidate_trans = get_automata_transition_count(candidate_dfa_raw)
 
-    consevative_regex = "|".join(positive_examples)
-    conservative_regex = "" if consevative_regex == "|" else consevative_regex
+    conservative_regex = "|".join(positive_examples)
+    conservative_regex = "" if conservative_regex == "|" else conservative_regex
     # Build minimized conservative DFA from the positive examples.
     conservative_dfa = regex_to_min_dfa(conservative_regex, alphabet)
     candidate_conservative_intersect = candidate_dfa_raw.get_intersection(conservative_dfa)
@@ -217,100 +225,48 @@ def calculate_helpfulness_score(candidate_regex, positive_examples, negative_exa
     return score
 
 def main():
-    # positive_examples = ["a", "b", "c"]
-    # print("Positive examples:", positive_examples)
-    # negative_examples = ["d"]
-    # print("Negative examples:", negative_examples)
+    parser = argparse.ArgumentParser(
+        description='Calculate the helpfulness score for a regex pattern based on positive and negative examples. '
+                    'This score measures how conservative or liberal a regex pattern is relative to the minimum necessary pattern.',
+        formatter_class=argparse.RawDescriptionHelpFormatter
+    )
 
-    # print()
-    # candidate_regex = ".*"  # Most liberal candidate
-    # score = calculate_helpfulness_score(candidate_regex, positive_examples, negative_examples)
-    # print("Candidate regex:", candidate_regex)
-    # print("The helpfulness score of the candidate regex is:", score)
+    parser.add_argument('regex', help='The regex pattern to evaluate')
+    parser.add_argument('--positive', '-p', nargs='+', required=True,
+                        help='List of positive example strings that should match the regex')
+    parser.add_argument('--negative', '-n', nargs='+', default=[],
+                        help='List of negative example strings that should not match the regex')
+    parser.add_argument('--verbose', '-v', action='store_true',
+                        help='Print detailed information during calculation')
 
-    # candidate_regex = "[a-c]"  # Conservative candidate
-    # print("\nCandidate regex:", candidate_regex)
-    # print("The helpfulness score of the candidate regex is:", calculate_helpfulness_score(candidate_regex, positive_examples, negative_examples))
+    # Add examples to help text
+    parser.epilog = '''
+Examples:
+  # Calculate score for email regex
+  python helpfulness_score.py "^[^\\s@]+@([^\\s@.,]+\\.)+[^\\s@.,]{2,}$" -p "test@example.com" "user@domain.org" -n "invalid" "no-at-sign.com"
 
-    # candidate_regex = "[a-d]"  # Conservative candidate
-    # print("\nCandidate regex:", candidate_regex)
-    # print("The helpfulness score of the candidate regex is:", calculate_helpfulness_score(candidate_regex, positive_examples, negative_examples))
+  # Calculate score for phone number regex
+  python helpfulness_score.py "^\\(?\d+\\)?[-.\s]?\\d+[-.\s]?\\d+$" -p "123-456-7890" "(123) 456-7890" "123.456.7890" -n "555 555 555554" "123 4567"
+'''
 
-    # candidate_regex = "[a-e]"  # Conservative candidate
-    # print("\nCandidate regex:", candidate_regex)
-    # print("The helpfulness score of the candidate regex is:", calculate_helpfulness_score(candidate_regex, positive_examples, negative_examples))
+    args = parser.parse_args()
 
-    # candidate_regex = "[a-f]"  # Conservative candidate
-    # print("\nCandidate regex:", candidate_regex)
-    # print("The helpfulness score of the candidate regex is:", calculate_helpfulness_score(candidate_regex, positive_examples, negative_examples))
+    if args.verbose:
+        print("Positive examples:", args.positive)
+        print("Negative examples:", args.negative)
+        print("Candidate regex:", args.regex)
 
-    # candidate_regex = "[a-h]"
-    # print("\nCandidate regex:", candidate_regex)
-    # print("The helpfulness score of the candidate regex is:", calculate_helpfulness_score(candidate_regex, positive_examples, negative_examples))
+    try:
+        score = calculate_helpfulness_score(args.regex, args.positive, args.negative, args.verbose)
+        print(f"Helpfulness score: {score:.4f}")
+    except ValueError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return 1
+    except Exception as e:
+        print(f"Unexpected error: {e}", file=sys.stderr)
+        return 1
 
-    # candidate_regex = "[a-z]{99}"
-    # print("\nCandidate regex:", candidate_regex)
-    # print("The helpfulness score of the candidate regex is:", calculate_helpfulness_score(candidate_regex, positive_examples, negative_examples))
-
-    # positive_examples = ["tekt@hotmail.com", "test@gmail.com"]
-    # negative_examples = ["facebook.com", "google.com", "other_stuff"]
-
-    # print()
-    # candidate_regex = "^[^\s@]+@([^\s@.,]+\.)+[^\s@.,]{2,}$"
-    # print("\nCandidate regex:", candidate_regex)
-    # print("The helpfulness score of the candidate regex is:", calculate_helpfulness_score(candidate_regex, positive_examples, negative_examples))
-
-    # candidate_regex = "te.{2}@.com"
-    # print("\nCandidate regex:", candidate_regex)
-    # print("The helpfulness score of the candidate regex is:", calculate_helpfulness_score(candidate_regex, positive_examples, negative_examples))
-
-    # positive_examples = ["subscribe"]
-    # negative_examples = ["threshold", "urlAfterRedirects", "userInfo", "setAttribute", "route", "pppUuuu", "isLoggedIn", "innerHTML", "highlightMenu", "get", "foo", "baz", "bar", "add"]
-
-    # candidate_regex = "\b(rss|feeds?|atom|json|xml|rdf|blogs?|subscribe)\b"
-    # print("\nCandidate regex:", candidate_regex)
-    # print("The helpfulness score of the candidate regex is:", calculate_helpfulness_score(candidate_regex, positive_examples, negative_examples))
-
-    # positive_examples = ["790d2cf6ada1937726c17f1ef41ab125"]
-    # negative_examples = ["790D2CF6ADA1937726C17F1EF41AB125","790d2cf6ada1937726c17f1ef41ab125f6k"]
-    # candidate_regex = "^(0x)?[0-9a-f]*$"
-
-    # print("\nCandidate regex:", candidate_regex)
-    # print("The helpfulness score of the candidate regex is:", calculate_helpfulness_score(candidate_regex, positive_examples, negative_examples))
-
-    # positive_examples = ["790d2cf6ada1937726c17f1ef41ab125"]
-    # negative_examples = ["790D2CF6ADA1937726C17F1EF41AB125","790d2cf6ada1937726c17f1ef41ab125f6k"]
-    # candidate_regex = "^([a-z0-9]{32})$"
-
-    # print("\nCandidate regex:", candidate_regex)
-    # print("The helpfulness score of the candidate regex is:", calculate_helpfulness_score(candidate_regex, positive_examples, negative_examples))
-
-    # positive_examples = ["23.30", "23:30"]
-    # negative_examples = ["23-30"]
-
-    # candidate_regex = "([\d.]+)(?:~)?([\d.]+)?(?::)?([\d.]+)?"
-
-    # print("\nCandidate regex:", candidate_regex)
-    # print("The helpfulness score of the candidate regex is:", calculate_helpfulness_score(candidate_regex, positive_examples, negative_examples))
-
-    #     Pos Str=
-    # 123-456-7890
-    # (123) 456-7890
-    # 123 456 7890
-    # 123.456.7890
-    # +91 (123) 456-7890
-    positive_examples = [r"123-456-7890", r"(123) 456-7890", r"123 456 7890", r"123.456.7890", r"\+91 (123) 456-7890"]
-    # Neg
-    # Neg Str=
-    # 555-555-555554 -> Fail
-    # 123-4567 -> Fail
-    negative_examples = [r"555 555 555554", r"123 4567"]
-
-    candidate_regex = r"^\(?\d+\)?[-.\s]?\d+[-.\s]?\d+$"
-
-    print("\nCandidate regex:", candidate_regex)
-    print("The helpfulness score of the candidate regex is:", calculate_helpfulness_score(candidate_regex, positive_examples, negative_examples))
-
+    return 0
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
