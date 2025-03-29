@@ -22,7 +22,7 @@ We evaluated these strategies across multiple dimensions including accuracy, syn
 
 - **modules/**: Contains the code for all components of our research
   - **extractor/**: Code for extracting regexes from software repositories
-  - **evaluator/**: Code for evaluating regex solutions
+  - **evaluator/**: Code for reuse-by-example and its evaluation
   - **helpfulness_score/**: Implementation of our novel "helpfulness" metric
   - **regex_semantic_sim/**: Semantic similarity comparison between regexes
   - **regex_syntactic_sim/**: Syntactic similarity comparison between regexes
