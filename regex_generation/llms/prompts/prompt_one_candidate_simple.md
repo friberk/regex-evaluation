@@ -1,0 +1,1 @@
+Generate a RegEx for matching the given positive examples while rejecting the negative examples:

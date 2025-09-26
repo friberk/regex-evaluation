@@ -1,0 +1,31 @@
+# .rayignore
+
+# Git history
+.git/
+
+# Python virtual environment
+.venv/
+venv/
+*/.venv/
+*/venv/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Databases and large data files (adjust as needed)
+*.sqlite
+*.sqlite3
+*.db
+*.ndjson
+*.bak.*
+data/regexreusedb/
+data/regexcompbench/
+data/internet_regexes/
+data/candidate_regexes/
+
+# IDE and OS files
+.idea/
+.vscode/
+.DS_Store
